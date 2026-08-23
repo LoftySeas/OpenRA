@@ -381,6 +381,8 @@ label-map-preview-searching = 正在搜索OpenRA资源中心...
 label-map-unavailable-a = 此地图未在
 label-map-unavailable-b = OpenRA资源中心找到
 label-map-preview-error = 安装过程中出现错误
+label-map-generation-error-a = 此地图由不兼容的
+label-map-generation-error-b = 版本生成
 label-map-update-available-a = 发现地图的新版本
 label-map-update-available-b = 在您的计算机上
 
@@ -612,6 +614,34 @@ label-checking-fingerprint-desc-a = 正从
 label-checking-fingerprint-desc-b = OpenRA论坛查询账户详细信息...
 label-connection-error-desc-a = 无法连接到OpenRA论坛。
 label-connection-error-desc-b = 请检查您的互联网连接。
+button-profile-link = 链接到OpenRA论坛账户
+button-profile-unlink = 取消链接
+button-forum-profile-link = 链接账户
+button-forum-profile-retry = 重试
+button-forum-profile-unlink = 取消链接账户
+button-forum-visit-forum = 访问论坛
+label-forum-profile-section-header = OpenRA论坛账户
+label-forum-profile-username = 用户名:
+label-forum-profile-password = 密码:
+label-forum-profile-description = 链接论坛账户以向其他玩家表明身份、加入私人服务器并展示徽章。
+label-forum-profile-checking-fingerprint = 正在从OpenRA论坛查询账户信息...
+label-forum-profile-connection-error = 无法连接到OpenRA论坛。
+label-forum-profile-result-banned = 您已被OpenRA论坛封禁。
+label-forum-profile-result-connection-failed = 无法连接到OpenRA论坛。
+label-forum-profile-result-error = 出现错误，请稍后重试。
+label-forum-profile-result-linked =
+   您可以在OpenRA论坛的用户控制面板中
+   管理和撤销认证密钥。
+label-forum-profile-result-unlinked =
+   您的密码用于向OpenRA论坛账户添加认证密钥。
+   密码不会被保存。
+label-forum-profile-result-auth-failure =
+   认证失败，请检查用户名和密码后重试。
+label-forum-profile-result-login-attempts =
+   登录尝试次数超出限制，请稍后再试。
+label-profile-link-desc-a = 链接论坛账户以表明您的身份
+label-profile-link-desc-b = 加入私人服务器
+label-profile-link-desc-c = 并展示徽章。
 
 ## replaybrowser.yaml
 label-replaybrowser-panel-title = 回放观看器

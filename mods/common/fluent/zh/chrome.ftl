@@ -196,6 +196,8 @@ label-map-preview-searching = 搜索 OpenRA 资源中心...
 label-map-unavailable-a = 未在此找到此地图
 label-map-unavailable-b = OpenRA 资源中心
 label-map-preview-error = 安装过程中发生错误
+label-map-generation-error-a = 此地图由不兼容的
+label-map-generation-error-b = 版本生成
 label-map-update-available-a = 发现地图的新版本
 label-map-update-available-b = 在你的计算机上
 
@@ -360,10 +362,10 @@ label-lobby-players-name = 名称
 label-lobby-players-color = 颜色
 label-lobby-players-faction = 阵营
 label-lobby-players-team = 队伍
-label-lobby-players-handicap =  handicap
+label-lobby-players-handicap = 让分
 label-lobby-players-spawn = 出生点
 label-lobby-players-ready = 准备
-dropdownbutton-lobby-players-handicap-tooltip = handicap 会降低玩家部队的战斗效能
+dropdownbutton-lobby-players-handicap-tooltip = 让分会降低玩家部队的战斗效能
 button-lobby-players-join = 在此槽位游戏
 label-lobby-players-spectator = 观战者
 checkbox-lobby-players-new-spectator-toggle = 允许观战者?
@@ -561,6 +563,34 @@ label-checking-fingerprint-desc-a = 正在从
 label-checking-fingerprint-desc-b = OpenRA 论坛查询账号信息...
 label-connection-error-desc-a = 连接 OpenRA 论坛失败。
 label-connection-error-desc-b = 请检查你的互联网连接。
+button-profile-link = 链接到 OpenRA 论坛账号
+button-profile-unlink = 取消链接
+button-forum-profile-link = 链接账号
+button-forum-profile-retry = 重试
+button-forum-profile-unlink = 取消链接账号
+button-forum-visit-forum = 访问论坛
+label-forum-profile-section-header = OpenRA 论坛账号
+label-forum-profile-username = 用户名:
+label-forum-profile-password = 密码:
+label-forum-profile-description = 链接论坛账号以向其他玩家表明身份、加入私人服务器并展示徽章。
+label-forum-profile-checking-fingerprint = 正在从 OpenRA 论坛查询账号信息...
+label-forum-profile-connection-error = 连接 OpenRA 论坛失败。
+label-forum-profile-result-banned = 你已被 OpenRA 论坛封禁。
+label-forum-profile-result-connection-failed = 连接 OpenRA 论坛失败。
+label-forum-profile-result-error = 发生错误，请稍后重试。
+label-forum-profile-result-linked =
+   你可以在 OpenRA 论坛的用户控制面板中
+   管理和撤销认证密钥。
+label-forum-profile-result-unlinked =
+   你的密码用于向 OpenRA 论坛账号添加认证密钥。
+   密码不会被保存。
+label-forum-profile-result-auth-failure =
+   认证失败，请检查用户名和密码后重试。
+label-forum-profile-result-login-attempts =
+   登录尝试次数超出限制，请稍后再试。
+label-profile-link-desc-a = 链接论坛账号以表明你的身份
+label-profile-link-desc-b = 加入私人服务器
+label-profile-link-desc-c = 并展示徽章。
 
 ## replaybrowser.yaml
 label-replaybrowser-panel-title = 录像查看器

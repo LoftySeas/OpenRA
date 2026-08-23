@@ -193,11 +193,21 @@ namespace OpenRA.Mods.Common.Lint
 			return best;
 		}
 
-		// Short English tokens that legitimately appear in Chinese UI: brand names, protocols, file formats.
+		// Short English tokens that legitimately appear in Chinese UI: brand names, protocols, file formats,
+		// game expansion / feature names, and keyboard / input key names. Anything not on this list that
+		// is 6+ ASCII letters is treated as a possibly-untranslated run.
 		static readonly HashSet<string> EnglishResidueWhitelist = new(StringComparer.Ordinal)
 		{
-			"OpenRA", "API", "HTTP", "URL", "IP", "CPU", "GPU", "RAM",
-			"Mix", "MIX", "INI", "PNG", "VQA", "JSON", "YAML",
+			"OpenRA", "openra", "API", "HTTP", "URL", "IP", "CPU", "GPU", "RAM", "OpenGL", "DirectX",
+			"syncreport", "assetbrowser", "install",
+			"Mix", "MIX", "INI", "PNG", "VQA", "JSON", "YAML", "TTF", "UTF", "UID",
+			"Escape", "Enter", "Space", "Tab", "Shift", "Control", "Alt", "Backspace", "Delete",
+			"Insert", "Home", "End", "PageUp", "PageDown", "Up", "Down", "Left", "Right",
+			"Middle", "MODIFIER", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+			"Mouse", "LeftMouse", "RightMouse", "MiddleMouse", "MouseWheel",
+			"Firestorm", "Aftermath", "Counterstrike", "Pylons", "Veinholes", "Veinhole",
+			"pylons", "Commander", "Scroll", "Advanced", "BotModule",
+			"Upgrade", "version", "forwarding", "DisplayDeveloperSettings",
 		};
 
 		static List<string> LoadForbiddenTerms(ModData modData)
