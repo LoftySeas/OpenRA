@@ -48,14 +48,16 @@ namespace OpenRA.Mods.Common.Lint
 			}
 
 			// Collect English baseline keys, attributes and variables.
-			var enMessages = LoadFluentFiles(modMessages, modData.DefaultFileSystem);
+			var enEmpty = new HashSet<string>();
+			var enMessages = LoadFluentFiles(modMessages, modData.DefaultFileSystem, enEmpty);
 			var enKeys = ExtractKeys(enMessages);
 			var enKeyAttrs = ExtractKeyAttributes(enMessages);
 			var enKeyVars = ExtractKeyVariables(enMessages);
 
 			// Collect the same for the target language.
 			var targetMessages = BuildLanguagePaths(modMessages, TargetLanguage);
-			var zhMessages = LoadFluentFiles(targetMessages, modData.DefaultFileSystem);
+			var zhEmpty = new HashSet<string>();
+			var zhMessages = LoadFluentFiles(targetMessages, modData.DefaultFileSystem, zhEmpty);
 			var zhKeys = ExtractKeys(zhMessages);
 			var zhKeyAttrs = ExtractKeyAttributes(zhMessages);
 			var zhKeyVars = ExtractKeyVariables(zhMessages);
@@ -85,11 +87,9 @@ namespace OpenRA.Mods.Common.Lint
 			}
 
 			// Check 3: empty or whitespace-only Chinese values.
-			foreach (var kvp in zhMessages)
+			foreach (var key in zhEmpty)
 			{
-				if (!string.IsNullOrWhiteSpace(kvp.Value))
-					continue;
-				emitError($"[zh] Empty or whitespace value for key `{kvp.Key}`");
+				emitError($"[zh] Empty value for key `{key}`");
 				valueIssues++;
 			}
 
@@ -134,7 +134,7 @@ namespace OpenRA.Mods.Common.Lint
 				$"empty={valueIssues}, attr-mismatches={attrMismatches}, var-mismatches={varMismatches}");
 		}
 
-		static Dictionary<string, string> LoadFluentFiles(ImmutableArray<string> paths, IReadOnlyFileSystem fileSystem)
+		static Dictionary<string, string> LoadFluentFiles(ImmutableArray<string> paths, IReadOnlyFileSystem fileSystem, HashSet<string> emptyKeys)
 		{
 			var result = new Dictionary<string, string>();
 			foreach (var path in paths)
@@ -150,8 +150,13 @@ namespace OpenRA.Mods.Common.Lint
 					var resource = parser.Parse();
 					foreach (var entry in resource.Entries)
 					{
-						if (entry is AstMessage msg)
-							result[msg.GetId()] = ExtractText(msg.Value);
+						if (entry is not AstMessage msg)
+							continue;
+
+						if (IsEmptyValue(msg.Value))
+							emptyKeys.Add(msg.GetId());
+
+						result[msg.GetId()] = ExtractText(msg.Value);
 					}
 				}
 				catch (Exception ex)
@@ -168,14 +173,27 @@ namespace OpenRA.Mods.Common.Lint
 			if (pattern == null)
 				return string.Empty;
 
-			// Simplified: pick the first TextLiteral. A full AST walker belongs to stage 6.
+			// Concatenate the TextLiteral elements; skip inline expressions. A full AST walker belongs to stage 6.
+			var sb = new StringBuilder();
 			foreach (var elem in pattern.Elements)
 			{
 				if (elem is TextLiteral txt)
-					return txt.Value.ToString();
+					sb.Append(txt.Value);
 			}
 
-			return string.Empty;
+			return sb.ToString();
+		}
+
+		static bool IsEmptyValue(Pattern pattern)
+		{
+			// Truly empty: no value, or a value that contains no literal text and no inline expressions.
+			if (pattern == null)
+				return true;
+			if (pattern.Elements.Count == 0)
+				return true;
+
+			// A value with only placeholders (e.g. `{ $name }`) is not empty - it has variable content.
+			return false;
 		}
 
 		static HashSet<string> ExtractKeys(Dictionary<string, string> messages)

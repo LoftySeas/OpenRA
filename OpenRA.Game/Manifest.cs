@@ -73,7 +73,7 @@ namespace OpenRA
 		public readonly string SpriteSequenceFormat;
 		public readonly string TerrainFormat;
 
-		public readonly ImmutableArray<string> FluentLanguages = ImmutableArray.Create("en");
+		public readonly ImmutableArray<string> FluentLanguages = ["en"];
 		public readonly bool AllowUnusedFluentMessagesInExternalPackages = true;
 
 		static readonly FrozenSet<string> ReservedModuleNames = new HashSet<string>
@@ -132,7 +132,7 @@ namespace OpenRA
 			Notifications = YamlList(yaml, "Notifications");
 			Music = YamlList(yaml, "Music");
 			FluentMessages = YamlList(yaml, "FluentMessages");
-			if (yaml.TryGetValue("FluentLanguages", out entry))
+			if (yaml.TryGetValue("FluentLanguages", out var entry))
 				FluentLanguages = entry.Nodes.Select(n => n.Key).ToImmutableArray();
 			TileSets = YamlList(yaml, "TileSets");
 			ChromeMetrics = YamlList(yaml, "ChromeMetrics");
@@ -147,7 +147,7 @@ namespace OpenRA
 			// Allow inherited mods to import parent maps.
 			var compat = new List<string> { Id };
 
-			if (yaml.TryGetValue("SupportsMapsFrom", out var entry))
+			if (yaml.TryGetValue("SupportsMapsFrom", out entry))
 				compat.AddRange(entry.Value.Split(',').Select(c => c.Trim()));
 
 			MapCompatibility = compat.ToImmutableArray();
