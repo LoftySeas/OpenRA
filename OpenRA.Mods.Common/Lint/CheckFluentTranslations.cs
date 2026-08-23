@@ -123,15 +123,121 @@ namespace OpenRA.Mods.Common.Lint
 				varMismatches += enVars.Except(zhVars).Count + zhVars.Except(enVars).Count;
 			}
 
-			// TODO checks for stage 6:
-			// - Check 6: long English runs in a Chinese value (whitelist: proper nouns, protocols, hotkeys).
-			// - Check 7: forbidden-term scan (read the `avoid` column from docs/translation/zh-CN-glossary.csv).
+			// Check 6: long English runs in a Chinese value. Whitelisted short tokens (OpenRA, API names, etc.)
+			// are skipped so that proper nouns, protocol names, and hotkey references don't trip the detector.
+			var englishResidue = 0;
+			foreach (var (key, value) in zhMessages)
+			{
+				var run = LongestAsciiAlphaRun(value);
+				if (run == null || run.Length < 6)
+					continue;
+
+				// Whitelist common short tokens / acronyms that legitimately appear in Chinese UI.
+				if (EnglishResidueWhitelist.Contains(run))
+					continue;
+
+				emitWarning($"[zh] Key `{key}` has long English run `{run}` ({run.Length} chars) - possibly untranslated");
+				englishResidue++;
+			}
+
+			// Check 7: forbidden-term scan. The glossary CSV lives at docs/translation/zh-CN-glossary.csv
+			// (relative to the engine directory) and lists Chinese terms that should not appear in
+			// translations (e.g. 直译 of "Credits" as 信用点). Loading is best-effort: if the file is
+			// missing we silently skip the check rather than failing the lint.
+			var forbiddenHits = 0;
+			var forbidden = LoadForbiddenTerms(modData);
+			foreach (var (key, value) in zhMessages)
+			{
+				foreach (var term in forbidden)
+				{
+					if (value.Contains(term, StringComparison.Ordinal))
+					{
+						emitWarning($"[zh] Key `{key}` uses forbidden term `{term}` (see docs/translation/zh-CN-glossary.csv)");
+						forbiddenHits++;
+						break;
+					}
+				}
+			}
+
+			// TODO checks deferred:
 			// - Check 8: font glyph coverage (needs font file + cmap, move to a C# tool).
 			// - Check 9: per-file coverage parity between Chinese and English baselines.
 			// - Check 10: Fluent syntax errors and Junk nodes (the Linguini parser already reports these).
 			Console.WriteLine(
 				$"[zh] coverage report: missing={missingKeys}, extra={extraKeys}, " +
-				$"empty={valueIssues}, attr-mismatches={attrMismatches}, var-mismatches={varMismatches}");
+				$"empty={valueIssues}, attr-mismatches={attrMismatches}, var-mismatches={varMismatches}, " +
+				$"english-residue={englishResidue}, forbidden-term-hits={forbiddenHits}");
+		}
+
+		static string LongestAsciiAlphaRun(string value)
+		{
+			string best = null;
+			var start = -1;
+			for (var i = 0; i <= value.Length; i++)
+			{
+				var isLetter = i < value.Length && ((value[i] >= 'a' && value[i] <= 'z') || (value[i] >= 'A' && value[i] <= 'Z'));
+				if (isLetter)
+				{
+					if (start < 0)
+						start = i;
+				}
+				else if (start >= 0)
+				{
+					var run = value[start..i];
+					if (best == null || run.Length > best.Length)
+						best = run;
+					start = -1;
+				}
+			}
+
+			return best;
+		}
+
+		// Short English tokens that legitimately appear in Chinese UI: brand names, protocols, file formats.
+		static readonly HashSet<string> EnglishResidueWhitelist = new(StringComparer.Ordinal)
+		{
+			"OpenRA", "API", "HTTP", "URL", "IP", "CPU", "GPU", "RAM",
+			"Mix", "MIX", "INI", "PNG", "VQA", "JSON", "YAML",
+		};
+
+		static List<string> LoadForbiddenTerms(ModData modData)
+		{
+			_ = modData; // Reserved for future per-mod term overrides.
+			var result = new List<string>();
+
+			// EngineDir is the project root when the utility runs against the source tree.
+			var csvPath = Path.Combine(Platform.EngineDir, "docs", "translation", "zh-CN-glossary.csv");
+			if (!File.Exists(csvPath))
+				return result;
+
+			try
+			{
+				foreach (var line in File.ReadAllLines(csvPath))
+				{
+					if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+						continue;
+
+					// CSV format: english,chinese,avoid,scope,context,source,review,notes
+					// The avoid column is the 3rd field; entries are separated by '|'.
+					var parts = line.Split(',');
+					if (parts.Length < 3)
+						continue;
+
+					var avoid = parts[2].Trim();
+					if (string.IsNullOrEmpty(avoid))
+						continue;
+
+					foreach (var term in avoid.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+						if (!result.Contains(term))
+							result.Add(term);
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Failed to load forbidden terms from {csvPath}: {ex.Message}");
+			}
+
+			return result;
 		}
 
 		static Dictionary<string, string> LoadFluentFiles(ImmutableArray<string> paths, IReadOnlyFileSystem fileSystem, HashSet<string> emptyKeys)
