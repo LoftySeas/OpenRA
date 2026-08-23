@@ -369,3 +369,63 @@ Agent 可以生成候选译文和一致性报告，但以下内容必须由人�
 7. 之后才将中文资源机械导入独立提交。
 
 这样能先把最容易导致返工的架构、字体和来源问题解决，再投入成本最高的人工校订。
+
+---
+
+## 完成报告（2026-08-23）
+
+按计划 §10 第一轮执行完成。所有 7 个阶段任务均已 close：
+
+| 阶段 | 任务 | 状态 |
+| --- | --- | --- |
+| 0 | 建立可追溯基线 + 归档 PR #22531 | ✅ 完成（commit `b1b9d14792`） |
+| 1 | 分析多语言框架移植设计 | ✅ 完成（commit `b1b9d14792` 含 `docs/translation/framework-design.md`） |
+| 2 | 字体方案审计 | ✅ 完成（commit `b1b9d14792` 含 `docs/translation/font-audit.md`） |
+| 3 | 建立术语表骨架 + 校验工具 | ✅ 完成（commit `963cd4e1de` + `docs/translation/zh-CN-glossary.csv`） |
+| 3.5 | 移植 4911cf2 多语言框架到 bleed | ✅ 完成（commits `655485f6bc`、`c933551f26`、`c8e181501a`） |
+| 4 | 机械导入中文 .ftl 资源 | ✅ 完成（commit `a110921171`，162 个文件；补 commit `b92111416c`） |
+| 5 | 自动化质量门禁 | ✅ 完成（commits `c8e181501a`、`5a035e9e2e`） |
+| 6 | 运行时冒烟测试（4 mod） | ✅ 完成（commit `6fe8edb01b`） |
+
+### 工程交付
+
+- **新 commit（10 个）**：`b1b9d14792` → `6fe8edb01b`（基于 `a520984d91`）。
+- **新文件**：
+  - `OpenRA.Mods.Common/Lint/CheckFluentTranslations.cs`（7 项检查：missing/extra/empty/attr-mismatch/var-mismatch/英文残留/禁用术语）
+  - `OpenRA.Mods.Common/UtilityCommands/CheckLanguageResolution.cs`（运行时解析工具）
+  - `docs/translation/zh-CN-glossary.csv`、`framework-design.md`、`font-audit.md`、`stage-3-deliverable.md`、`stage-6-smoke-test.md`
+  - `scripts/smoke-test-translations.ps1`
+  - 162 个中文 `.ftl` 文件（4 个 Mod + 4 个 content Mod 完整覆盖）
+- **改文件**：
+  - `OpenRA.Game/Manifest.cs`：增加 `FluentLanguages`，注册 `zh`
+  - `OpenRA.Mods.Common/Widgets/Logic/Settings/LanguageSettingsLogic.cs`：中文显示名 `中文`
+  - `mods/{common,common-content,cnc,cnc-content,d2k,d2k-content,ra,ra-content,ts,ts-content}/mod.yaml`：声明 `zh`
+
+### 验收证据
+
+- ✅ `./make.ps1 check` 通过：0 警告、0 错误
+- ✅ `./make.ps1 test` 通过：所有 4 mod 的 MiniYAML/Fluent lint 全部 clean
+- ✅ `./make.ps1 tests` 通过：475 / 475（2 个 PngConstructor 跳过为已知平台限制）
+- ✅ 运行时冒烟：4 mod × zh/en = 8 个 (mod, lang) 组合，zh 和 en 的 OK 计数完全一致，证明回退机制完好（详见 `docs/translation/stage-6-smoke-test.md`）
+- ✅ lint 报告 `missing=0, extra=0, empty=0, attr-mismatches=0, var-mismatches=0`（所有 4 mod + 4 content mod 100% 覆盖）
+- ⚠️ lint 仍报告 `english-residue=124-134`（每 mod）和 `forbidden-term-hits=13-25`（每 mod）：这两类是**期望的**——它们是给人工审校者看的信号，不是工程错误
+
+### 计划 §8 完成定义核对
+
+- ✅ 多语言框架与中文内容已经拆分（cherry-pick 框架 commit + 独立内容 commit）
+- ✅ 所有官方 Mod 均可启动；中文切换和英文回退有效
+- ✅ Fluent 语法、key、attribute、变量一致性检查全部通过
+- ⚠️ 中文字体覆盖：审计已完成（`docs/translation/font-audit.md`），但 PR #22531 的字体文件未随本批提交合并——属于后续工作
+- ✅ `./make.ps1 check`、`./make.ps1 test`、`./make.ps1 tests` 通过
+- ⏳ 公共界面及高风险游戏文本独立复核：待术语审校阶段（后续工作）
+- ✅ CNC、RA、D2K、TS 运行时冒烟测试完成
+- ⏳ 严重文本溢出 / 乱码 / 裸 Fluent key 排查：需要 GUI 视觉验证（计划 §5 范围）
+- ✅ 术语表、覆盖率报告、来源记录随版本一起发布
+
+### 后续工作（不在本次执行范围）
+
+1. **人工术语审校**：`docs/translation/stage-6-smoke-test.md` 列出的 124-134 个英文残留与 13-25 个禁用术语需中文母语者审校
+2. **CJK 字体落地**：将 PR #22531 的字体文件按 §2 审计建议的方式独立提交
+3. **GUI 视觉验证**：固定窗口尺寸下的截图证据（计划 §5 §5）
+4. **持续同步**：定期 rebase bleed 并运行 lint 以捕获新增英文 key
+5. **向上游拆分**：按计划 §9 顺序向上游提 PR（框架 → 字体 → 中文内容分批）
