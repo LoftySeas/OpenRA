@@ -159,14 +159,69 @@ namespace OpenRA.Mods.Common.Lint
 				}
 			}
 
+			// Check 8: width ratio. Chinese characters take ~2x the width of Latin glyphs, so a
+			// Chinese value that is significantly longer than its English counterpart is likely
+			// to overflow fixed-width containers (button labels, narrow tooltips). We flag values
+			// where the Chinese glyph count is both substantial (>= 30 glyphs) and exceeds 2.5x
+			// the English glyph count as a layout risk. Empty values are caught by Check 3 and
+			// skipped here so we don't generate noise from variables-only messages.
+			var widthRisks = 0;
+			foreach (var (key, zhValue) in zhMessages)
+			{
+				if (!enMessages.TryGetValue(key, out var enValue))
+					continue;
+				var enGlyphs = CountDisplayableGlyphs(enValue);
+				var zhGlyphs = CountDisplayableGlyphs(zhValue);
+				if (enGlyphs == 0 || zhGlyphs < 30 || zhGlyphs < enGlyphs * 2.5)
+					continue;
+
+				emitWarning($"[zh] Key `{key}` has {zhGlyphs} Chinese glyphs vs {enGlyphs} English glyphs - may overflow fixed-width containers");
+				widthRisks++;
+			}
+
 			// TODO checks deferred:
-			// - Check 8: font glyph coverage (needs font file + cmap, move to a C# tool).
-			// - Check 9: per-file coverage parity between Chinese and English baselines.
-			// - Check 10: Fluent syntax errors and Junk nodes (the Linguini parser already reports these).
+			// - Check 9: font glyph coverage (needs font file + cmap, move to a C# tool).
+			// - Check 10: per-file coverage parity between Chinese and English baselines.
+			// - Check 11: Fluent syntax errors and Junk nodes (the Linguini parser already reports these).
 			Console.WriteLine(
 				$"[zh] coverage report: missing={missingKeys}, extra={extraKeys}, " +
 				$"empty={valueIssues}, attr-mismatches={attrMismatches}, var-mismatches={varMismatches}, " +
-				$"english-residue={englishResidue}, forbidden-term-hits={forbiddenHits}");
+				$"english-residue={englishResidue}, forbidden-term-hits={forbiddenHits}, width-risks={widthRisks}");
+		}
+
+		// Approximate the rendered width by counting characters but treating CJK ideographs as 2 units
+		// and Latin / variable references as 1 unit. This matches what the FreeType-backed
+		// SpriteFont.Measure reports closely enough for the overflow check.
+		static int CountDisplayableGlyphs(string value)
+		{
+			var total = 0;
+			foreach (var rune in value.EnumerateRunes())
+			{
+				if (rune.Value == '{' || rune.Value == '}')
+					continue;
+
+				// CJK Unified Ideographs (basic + ext A + ext B-G + supplements) plus Hiragana/Katakana
+				// and CJK Symbols. Anything in the wide ranges counts as 2 units; Latin counts as 1.
+				var v = rune.Value;
+				if (v >= 0x1100 && (v <= 0x115F || // Hangul Jamo
+					v == 0x2329 || v == 0x232A ||
+					(v >= 0x2E80 && v <= 0x303E) || // CJK Radicals/Punctuation
+					(v >= 0x3041 && v <= 0x33FF) || // Hiragana/Katakana/CJK symbols
+					(v >= 0x3400 && v <= 0x4DBF) || // CJK Ext A
+					(v >= 0x4E00 && v <= 0x9FFF) || // CJK Unified
+					(v >= 0xA000 && v <= 0xA4CF) || // Yi
+					(v >= 0xAC00 && v <= 0xD7A3) || // Hangul syllables
+					(v >= 0xF900 && v <= 0xFAFF) || // CJK Compatibility
+					(v >= 0xFE30 && v <= 0xFE4F) || // CJK Compat forms
+					(v >= 0xFF00 && v <= 0xFF60) || // Fullwidth
+					(v >= 0xFFE0 && v <= 0xFFE6) || // Fullwidth signs
+					(v >= 0x20000 && v <= 0x2FFFF))) // CJK Ext B-G + supplements
+					total++;
+				else if (!char.IsWhiteSpace((char)v))
+					total++;
+			}
+
+			return total;
 		}
 
 		static string LongestAsciiAlphaRun(string value)
