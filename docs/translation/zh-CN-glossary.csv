@@ -1,0 +1,113 @@
+english,chinese,avoid,scope,context,source,review,notes
+# OpenRA 简体中文术语表
+# 列定义：
+#   english  - 英文原文（必须与 .ftl 文件中的 value 一致）
+#   chinese  - 推荐中文译名
+#   avoid    - 禁用或不推荐译法（多个用 | 分隔）
+#   scope    - 适用范围：all|cnc|d2k|ra|ts|common
+#   context  - 上下文/解释
+#   source   - 译名来源（community|official|new|back-translation）
+#   review   - 审核状态：pending|approved（默认 pending）
+#   notes    - 备注
+#
+# 编辑规则：
+#   1. 不在术语表确定前使用 LLM 译名直接进 .ftl 文件
+#   2. 单位/建筑/阵营/角色专名必须先入术语表再翻译
+#   3. 同一英文术语只能有一个推荐中文译名；如有分歧，列在 avoid 列
+#   4. 战役对白专名需注明所辖作品
+# === 通用 UI 术语（适用于所有 mod） ===
+Apply,应用,,all,"按钮：保存并应用设置",community,pending,
+Back,返回,,all,"按钮：返回上级菜单",community,pending,
+Cancel,取消,,all,"按钮：取消操作",community,pending,
+OK,确定,,all,"按钮：确认操作",community,pending,
+Yes,是,,all,"按钮：肯定回答",community,pending,
+No,否,,all,"按钮：否定回答",community,pending,
+Close,关闭,,all,"按钮：关闭窗口",community,pending,
+Open,打开,,all,"按钮：打开文件/目录",community,pending,
+Save,保存,,all,"按钮：保存",community,pending,
+Load,载入,,all,"按钮：加载存档",community,pending,
+Reset,重置,,all,"按钮：恢复默认",community,pending,
+Settings,设置,,all,"主菜单和面板标题",community,pending,
+Options,选项,,all,"设置中的子面板",community,pending,
+Game,游戏,,all,"主菜单",community,pending,
+Single,单人,|单人游戏,singleplayer only,"多人选项中区别于多人游戏","back-translation",pending,
+Singleplayer,单人游戏,,all,"游戏模式",community,pending,
+Multiplayer,多人游戏,,all,"游戏模式",community,pending,
+Skirmish,遭遇战,,all,"与 AI 对战",community,pending,
+Host,创建,,all,"作为主机创建游戏",community,pending,
+Join,加入,,all,"作为客户端加入游戏",community,pending,
+Disconnect,断开连接,,all,"退出当前会话",community,pending,
+Kick,踢出,,all,"管理员操作：踢出玩家",community,pending,
+Ban,封禁,,all,"管理员操作：封禁玩家",community,pending,
+Start,开始,,all,"按钮：开始游戏",community,pending,
+Ready,准备,,all,"准备状态",community,pending,
+Spectator,观战,,all,"观战者",community,pending,
+Player,玩家,,all,"通用玩家",community,pending,
+Team,队伍,,all,"队伍/团队",community,pending,
+Color,颜色,,all,"玩家颜色",community,pending,
+Faction,阵营,,all,"通用阵营（cnc: GDI/Nod, ra: Allies/Soviets, d2k: Atreides/Harkonnen/Ordos）",community,pending,
+Allies,盟军,|联军|盟军国,ra,"红色警戒盟军阵营",official,pending,"原版台湾译名"
+Soviet,苏联,|苏维埃|苏军,ra,"红色警戒苏联阵营",official,pending,
+GDI,全球防御组织,|GDI|gdi,cnc,"泰伯利亚黎明 GDI 阵营（Global Defense Initiative）",official,pending,
+Nod,诺德兄弟会,|Nod|nod,cnc,"泰伯利亚黎明 Nod 阵营",official,pending,
+Atreides,亚特雷迪斯,|阿特雷德斯|厄崔迪,d2k,"沙丘 2000 亚特雷迪斯家族",community,pending,"参考电影《沙丘》"
+Harkonnen,哈克南,|哈科南,d2k,"沙丘 2000 哈克南家族",community,pending,"参考电影《沙丘》"
+Ordos,奥多斯,|厄尔德斯|厄拉科斯,d2k,"沙丘 2000 奥多斯家族",community,pending,"Ordos 家族是沙丘系列的家族之一"
+Scavenger,拾荒者,,ts,"泰伯利亚之日 拾荒者阵营",community,pending,
+=== 资源（通用） ===
+Credits,资金,|信用点,all,"建造单位消耗的资金",community,pending,"避免直译'信用'——非现代信用货币"
+Power,电力,|能量,all,"电厂发电量",community,pending,"不用'能量'——TS 中 EnergyWeapon 才译作能量"
+Ore,矿石,|矿,all,"RA/D2K 通用资源",community,pending,
+Tiberium,泰伯利亚,|泰矿|泰伯里昂,cnc|ts,"C&C 系列核心资源",official,pending,
+Spice,香料,|美琅脂,d2k,"沙丘系列核心资源",community,pending,"参考电影《沙丘》"
+=== 基础建筑（通用） ===
+Construction Yard,建造场,|建造厂|建筑工地,all,"基础建筑（主基地）",community,pending,
+Power Plant,电厂,|发电厂,all,"生产电力的建筑",community,pending,
+Refinery,精炼厂,|矿场|采矿场,all,"Ore/Tiberium 转为资金",community,pending,
+Barracks,兵营,,all,"训练步兵",community,pending,
+War Factory,战车工厂,|战车厂,all,"生产车辆",community,pending,
+Airfield,机场,|空军基地,all,"生产飞行单位",community,pending,
+=== 通用兵种 ===
+Infantry,步兵,|士兵,all,"地面轻型作战单位",community,pending,
+Engineer,工程师,|工程兵,all,"占领/修复建筑",community,pending,
+Medic,医疗兵,|军医,all,"治疗步兵",community,pending,
+Spy,间谍,|侦察兵,all,"渗透建筑",community,pending,
+Mechanic,机械师,,d2k,"修复车辆",community,pending,
+=== 通用车辆 ===
+Tank,坦克,,all,"基础装甲单位",community,pending,
+Light Tank,轻型坦克,,all,"轻甲高机动",community,pending,
+Medium Tank,中型坦克,,all,"中甲中速",community,pending,
+Heavy Tank,重型坦克,,all,"重甲低速",community,pending,
+Artillery,火炮,|炮兵,all,"远程曲射",community,pending,
+Harvester,采矿车,|收割机,all,"采 Ore/Tiberium",community,pending,
+=== 通用飞行单位 ===
+Heli,直升机,,all,"通用直升机缩写",community,pending,
+Helicopter,直升机,,all,"完整称谓",community,pending,
+=== 地图与战役 ===
+Map,地图,,all,"通用地图",community,pending,
+Mission,关卡,|任务|战役关卡,all,"战役关卡",community,pending,
+Campaign,战役,,all,"战役模式",community,pending,
+Briefing,任务简报,|简介,all,"关卡开始前的简报文本",community,pending,
+Objective,目标,,all,"任务目标",community,pending,
+Primary Objective,主要目标,,all,"主要任务目标",community,pending,
+Secondary Objective,次要目标,,all,"次要任务目标",community,pending,
+Victory,胜利,,all,"胜利条件",community,pending,
+Defeat,失败,,all,"失败条件",community,pending,
+=== 战斗与状态 ===
+Health,生命值,|血量|HP,all,"单位当前血量",community,pending,
+Armor,装甲,|护甲,all,"单位护甲值",community,pending,
+Damage,伤害,|杀伤,all,"攻击伤害",community,pending,
+Range,射程,|攻击距离,all,"武器射程",community,pending,
+Sight,视野,|视距,all,"单位视野",community,pending,
+Speed,速度,,all,"移动速度",community,pending,
+Firepower,火力,|攻击,all,"攻击能力综合",community,pending,
+Reload,装填时间,|重新装填,all,"两次攻击间隔",community,pending,
+Accuracy,精度,|命中率,all,"武器命中",community,pending,
+=== 玩家与控制 ===
+Spawn,生成,|刷新,all,"单位出现位置",community,pending,
+Waypoint,航点,|路径点,all,"移动路径点",community,pending,
+Beacon,信号弹,|信标,all,"地图标记",community,pending,
+Radar,雷达,,all,"探测设施/视野",community,pending,
+Reinforcements,增援,|援军,all,"抵达战场的援军",community,pending,
+=== 字体（待定） ===
+Source Han Sans,思源黑体,,all,"字体名——OpenRA UI 不显示，仅作记录",official,approved,"Apache 2.0"
