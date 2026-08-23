@@ -161,6 +161,7 @@ AllowUnusedFluentMessagesInExternalPackages: false
 
 FluentLanguages:
 	en
+	zh
 
 Voices:
 	cnc|audio/voices.yaml

@@ -192,6 +192,7 @@ AllowUnusedFluentMessagesInExternalPackages: false
 
 FluentLanguages:
 	en
+	zh
 
 Voices:
 	ts|audio/voices.yaml

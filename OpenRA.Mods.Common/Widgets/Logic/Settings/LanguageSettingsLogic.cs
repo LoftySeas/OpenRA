@@ -22,6 +22,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		static readonly Dictionary<string, string> LanguageNativeNames = new()
 		{
 			{ "en", "English" },
+			{ "zh", "中文" },
 		};
 
 		readonly GameSettings gameSettings;
