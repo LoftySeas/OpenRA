@@ -557,20 +557,8 @@ label-directconnect-panel-port = :
 button-directconnect-panel-join = 加入
 
 ## playerprofile.yaml
-button-profile-header-logout = 登出
-label-generate-keys-desc-a = 连接论坛账号以向其他玩家展示身份，
-label-generate-keys-desc-b = 加入私人服务器，并显示徽章。
-label-generate-keys-desc-c =
-button-generate-keys-key = 连接到 OpenRA 论坛账号
-label-generating-keys-desc-a = 正在生成认证密钥对。
-label-generating-keys-desc-b = 这将需要几秒钟...
-label-register-fingerprint-desc-a = 认证密钥已复制到你的
-label-register-fingerprint-desc-b = 剪贴板。将其添加到你在 OpenRA 论坛的用户控制面板，
-label-register-fingerprint-desc-c = 然后按继续。
 label-checking-fingerprint-desc-a = 正在从
 label-checking-fingerprint-desc-b = OpenRA 论坛查询账号信息...
-label-fingerprint-not-found-desc-a = 你的认证密钥未连接到
-label-fingerprint-not-found-desc-b = OpenRA 论坛账号。
 label-connection-error-desc-a = 连接 OpenRA 论坛失败。
 label-connection-error-desc-b = 请检查你的互联网连接。
 

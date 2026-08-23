@@ -932,8 +932,6 @@ label-ts-map-generator-choice-resources-very-high =
    .label = 非常高
 label-ts-map-generator-choice-resources-full =
    .label = 矿藏丰富
-label-ts-map-generator-choice-resources-oreful =
-   .label = 矿藏丰富
 
 label-ts-map-generator-option-buildings = Veinholes
 label-ts-map-generator-choice-buildings-none =

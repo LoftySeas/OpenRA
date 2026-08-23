@@ -175,7 +175,6 @@ label-stats-player = 玩家
 label-stats-faction = 阵营
 label-stats-score = 得分
 label-stats-actions = 行动次数
-label-stats-actions-min-header = APM
 
 ## ingame.yaml
 button-observer-widget-options-tooltip = 菜单
@@ -609,20 +608,8 @@ label-bg-port = 端口:
 button-directconnect-panel-join = 加入
 
 ## playerprofile.yaml
-button-profile-header-logout = 登出
-label-generate-keys-desc-a = 连接到论坛账户以识别
-label-generate-keys-desc-b = 自己并向其他玩家显示，加入私人
-label-generate-keys-desc-c = 服务器，显示徽章。
-button-generate-keys-key = 连接到OpenRA论坛账户
-label-generating-keys-desc-a = 正在生成认证密钥对。
-label-generating-keys-desc-b = 这将需要几秒钟...
-label-register-fingerprint-desc-a = 认证密钥已复制到
-label-register-fingerprint-desc-b = 剪贴板。请将此添加到OpenRA论坛
-label-register-fingerprint-desc-c = 的用户控制面板，然后点击继续。
 label-checking-fingerprint-desc-a = 正从
 label-checking-fingerprint-desc-b = OpenRA论坛查询账户详细信息...
-label-fingerprint-not-found-desc-a = 您的认证密钥未连接
-label-fingerprint-not-found-desc-b = 到OpenRA论坛账户。
 label-connection-error-desc-a = 无法连接到OpenRA论坛。
 label-connection-error-desc-b = 请检查您的互联网连接。
 
