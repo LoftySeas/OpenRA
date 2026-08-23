@@ -139,7 +139,8 @@ namespace OpenRA
 				// font list so CJK-capable fonts render Chinese characters (Source Han Sans CN etc.) while
 				// keeping any font names the override doesn't define (e.g. "SymbolsFont") on the default.
 				var language = Game.Settings?.Game?.Language ?? "en";
-				fontsData.LanguageFonts.TryGetValue(language, out var overrides);
+				var languageFonts = modData.GetOrCreate<LanguageFonts>();
+				languageFonts.Overrides.TryGetValue(language, out var overrides);
 
 				var active = new Dictionary<string, FontData>(fontsData.FontList);
 				if (overrides != null)

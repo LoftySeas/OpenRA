@@ -17,12 +17,13 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 {
 	public class LanguageSettingsLogic : ChromeLogic
 	{
-		// Language names are in native script so users can find their language
-		// regardless of what the UI currently displays.
+		// Language names are shown in Latin script so the current UI font (which may not have
+		// CJK glyphs if the user is still on English) can render them. The native name is
+		// documented in the .ftl file / chrome.yaml tooltip instead.
 		static readonly Dictionary<string, string> LanguageNativeNames = new()
 		{
 			{ "en", "English" },
-			{ "zh", "中文" },
+			{ "zh", "Chinese" },
 		};
 
 		readonly GameSettings gameSettings;

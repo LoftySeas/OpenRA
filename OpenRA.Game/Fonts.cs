@@ -26,14 +26,6 @@ namespace OpenRA
 		[FieldLoader.LoadUsing(nameof(LoadFonts))]
 		public readonly FrozenDictionary<string, FontData> FontList;
 
-		// Per-language font overrides. A mod can declare a `LanguageFonts:` block
-		// alongside `Fonts:` to substitute CJK-capable fonts when the current
-		// language would otherwise render missing-glyph boxes. The renderer reads
-		// this when Game.Settings.Game.Language matches a key; entries missing from
-		// the override fall back to the default FontList.
-		[FieldLoader.LoadUsing(nameof(LoadLanguageFonts))]
-		public readonly FrozenDictionary<string, FrozenDictionary<string, FontData>> LanguageFonts;
-
 		static object LoadFonts(MiniYaml y)
 		{
 			var ret = new Dictionary<string, FontData>(y.Nodes.Length);
@@ -42,6 +34,19 @@ namespace OpenRA
 
 			return ret.ToFrozenDictionary();
 		}
+	}
+
+	// Per-language font overrides declared via the `LanguageFonts:` block in mod.yaml.
+	// Each top-level key is a language code (e.g. "zh"); its value is a font-name -> FontData
+	// map applied on top of the default `Fonts:` list at render time so CJK-capable fonts
+	// can substitute for FreeSans when the current language has CJK glyphs the default
+	// font cannot render.
+	public class LanguageFonts : IGlobalModData
+	{
+		[FieldLoader.LoadUsing(nameof(LoadLanguageFonts))]
+		public readonly FrozenDictionary<string, FrozenDictionary<string, FontData>> Overrides;
+
+		public LanguageFonts() { Overrides = FrozenDictionary<string, FrozenDictionary<string, FontData>>.Empty; }
 
 		static object LoadLanguageFonts(MiniYaml y)
 		{
