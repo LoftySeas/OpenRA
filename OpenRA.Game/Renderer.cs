@@ -133,7 +133,20 @@ namespace OpenRA
 			{
 				fontSheetBuilder?.Dispose();
 				fontSheetBuilder = new SheetBuilder(SheetType.BGRA, modData.Manifest.RendererConstants.FontSheetSize);
-				Fonts = modData.GetOrCreate<Fonts>().FontList.ToDictionary(x => x.Key,
+				var fontsData = modData.GetOrCreate<Fonts>();
+
+				// When the current language has a LanguageFonts override, layer it on top of the default
+				// font list so CJK-capable fonts render Chinese characters (Source Han Sans CN etc.) while
+				// keeping any font names the override doesn't define (e.g. "SymbolsFont") on the default.
+				var language = Game.Settings?.Game?.Language ?? "en";
+				fontsData.LanguageFonts.TryGetValue(language, out var overrides);
+
+				var active = new Dictionary<string, FontData>(fontsData.FontList);
+				if (overrides != null)
+					foreach (var (name, data) in overrides)
+						active[name] = data;
+
+				Fonts = active.ToDictionary(x => x.Key,
 					x => new SpriteFont(
 						platform, x.Value.Font, modData.DefaultFileSystem.Open(x.Value.Font).ReadAllBytes(),
 						x.Value.Size, x.Value.Ascender, Window.EffectiveWindowScale, fontSheetBuilder));

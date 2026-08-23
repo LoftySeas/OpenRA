@@ -1,4 +1,4 @@
-Metadata:
+﻿Metadata:
 	Title: mod-title
 	Version: {DEV_VERSION}
 	Website: https://www.openra.net
@@ -232,6 +232,42 @@ Fonts:
 		Size: 32
 		Ascender: 24
 
+
+
+LanguageFonts:
+	zh:
+		Tiny:
+			Font: common|SourceHanSansCN-Regular.ttf
+			Size: 10
+			Ascender: 8
+		TinyBold:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 10
+			Ascender: 8
+		Small:
+			Font: common|SourceHanSansCN-Regular.ttf
+			Size: 12
+			Ascender: 9
+		Regular:
+			Font: common|SourceHanSansCN-Regular.ttf
+			Size: 14
+			Ascender: 11
+		Bold:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 14
+			Ascender: 11
+		MediumBold:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 18
+			Ascender: 14
+		BigBold:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 24
+			Ascender: 18
+		Title:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 32
+			Ascender: 24
 Missions:
 	cnc|missions.yaml
 

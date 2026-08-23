@@ -1,4 +1,4 @@
-Metadata:
+﻿Metadata:
 	Title: mod-title
 	Version: {DEV_VERSION}
 	Hidden: true
@@ -72,6 +72,34 @@ Fonts:
 		Ascender: 18
 
 
+
+
+LanguageFonts:
+	zh:
+		Tiny:
+			Font: common|SourceHanSansCN-Regular.ttf
+			Size: 10
+			Ascender: 8
+		TinyBold:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 10
+			Ascender: 8
+		Regular:
+			Font: common|SourceHanSansCN-Regular.ttf
+			Size: 14
+			Ascender: 11
+		Bold:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 14
+			Ascender: 11
+		MediumBold:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 18
+			Ascender: 14
+		BigBold:
+			Font: common|SourceHanSansCN-Bold.ttf
+			Size: 24
+			Ascender: 18
 ModContent:
 	Mod: ra
 	QuickDownload: quickinstall
