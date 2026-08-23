@@ -41,6 +41,10 @@ FluentMessages:
 	content|fluent/chrome.ftl
 	d2kcontent|fluent/chrome.ftl
 
+FluentLanguages:
+	en
+	zh
+
 Fonts:
 	Tiny:
 		Font: common|FreeSans.ttf

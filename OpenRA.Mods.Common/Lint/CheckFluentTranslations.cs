@@ -153,7 +153,10 @@ namespace OpenRA.Mods.Common.Lint
 						if (entry is not AstMessage msg)
 							continue;
 
-						if (IsEmptyValue(msg.Value))
+						// A key is only "empty" if neither its main value nor any of its attributes
+						// contain content. Dialogs commonly use an empty main value plus .title/.prompt
+						// attributes, which is a legitimate Fluent pattern, not a translation miss.
+						if (IsEmptyMessage(msg))
 							emptyKeys.Add(msg.GetId());
 
 						result[msg.GetId()] = ExtractText(msg.Value);
@@ -194,6 +197,19 @@ namespace OpenRA.Mods.Common.Lint
 
 			// A value with only placeholders (e.g. `{ $name }`) is not empty - it has variable content.
 			return false;
+		}
+
+		static bool IsEmptyMessage(AstMessage msg)
+		{
+			if (!IsEmptyValue(msg.Value))
+				return false;
+
+			// Main value is empty, but check the attributes.
+			foreach (var attr in msg.Attributes)
+				if (!IsEmptyValue(attr.Value))
+					return false;
+
+			return true;
 		}
 
 		static HashSet<string> ExtractKeys(Dictionary<string, string> messages)

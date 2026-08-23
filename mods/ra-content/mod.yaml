@@ -41,6 +41,10 @@ FluentMessages:
 	content|fluent/chrome.ftl
 	racontent|fluent/chrome.ftl
 
+FluentLanguages:
+	en
+	zh
+
 Fonts:
 	Tiny:
 		Font: common|FreeSans.ttf
