@@ -1,26 +1,11 @@
+> ⚠️ Deprecated
+>
+> This document has been merged into:
+>
+> `AI-State-Action-Data-Spec.md`
+>
+> Kept for historical reference only.
+
 # AI Feature Engineering
 
-## Goal
-Convert RTS world state into compact learning features.
-
-## Economy Features
-- Cash
-- Income rate
-- Harvester count
-- Resource remaining
-- Production capacity
-
-## Military Features
-- Unit value by category
-- Damage potential
-- Survivability
-- Army position
-
-## Strategic Features
-- Map control
-- Expansion opportunities
-- Enemy threat estimation
-- Technology advantage
-
-## Principles
-Features should represent decisions, not raw engine details.
+This document is no longer maintained independently. Use `AI-State-Action-Data-Spec.md` as the source of truth.
