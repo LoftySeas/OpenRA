@@ -1,21 +1,9 @@
+> Deprecated
+>
+> This document has been merged into `AI-State-Action-Data-Spec.md`.
+>
+> Kept for historical reference only.
+
 # AI Action Space Design
 
-## Macro Actions
-- Expand
-- Attack
-- Defend
-- Scout
-- Tech up
-- Change production
-
-## Tactical Actions
-- Create squad
-- Change target
-- Retreat
-- Reinforce
-
-## Action Masking
-Illegal actions must be removed before inference.
-
-## Principle
-Use hierarchical actions instead of direct unit commands.
+This document is deprecated. See the unified state/action data specification for the maintained design.
