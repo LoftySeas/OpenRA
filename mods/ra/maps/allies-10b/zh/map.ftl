@@ -1,3 +1,6 @@
+## map.yaml
+title = "罪证 (b) (Evidence)"
+
 ## rules.yaml
 briefing = 
     现在复杂设施已被渗透，发射控制中心必须被停用。让工程师们前往控制中心，并在导弹到达目标前将其停用。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "轰炸机约翰 (Bomber John)"
+
 ## rules.yaml
 notification-ironcurtain =
     .charging = 铁幕正在充能。

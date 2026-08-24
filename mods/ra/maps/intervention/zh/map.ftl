@@ -1,3 +1,6 @@
+## map.yaml
+title = "武装干涉 (Intervention)"
+
 ## rules.yaml
 briefing = 
     苏联空军正在对一个平民村庄发动空袭。

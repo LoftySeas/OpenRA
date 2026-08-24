@@ -1,3 +1,6 @@
+## map.yaml
+title = "07b：病入膏肓 (07b: Sick and Dying)"
+
 ## rules.yaml
 briefing = 
     兄弟会已在该地区定位到一片巨大的钛菌田。

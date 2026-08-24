@@ -219,6 +219,8 @@ menu-ingame =
     .resume = 恢复
     .save-map = 保存地图
     .exit-map = 退出地图编辑器
+    .play-map = 试玩地图
+    .back-to-editor = 返回地图编辑器
 
 dialog-leave-mission =
     .title = 离开任务
@@ -329,12 +331,23 @@ options-lobby-slot =
     .bots = 机器人
     .bots-disabled = 机器人已禁用
 
+options-lobby-client =
+    .transfer-admin = 转移管理员
+    .move-to-spectator = 移至观察者
+
 ## 地图预览逻辑
 label-connecting = 正在连接...
 label-downloading-map = 正在下载 { $size } kB
 label-downloading-map-progress = 正在下载 { $size } kB ({ $progress }%)
 button-retry-install = 重试安装
 button-retry-search = 重试搜索
+
+## 存档浏览器，加载游戏浏览器
+label-save-duration = 游戏时长：{ $duration }
+label-save-duration-unknown = 游戏时长：?
+
+## 服务器列表逻辑
+label-server-location-local-network = 局域网
 ## 地图选择器逻辑也适用
 label-created-by = 由 { $author } 创建
 

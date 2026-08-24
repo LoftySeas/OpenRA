@@ -175,9 +175,11 @@ FluentMessages:
 	common|fluent/ingame-debug.ftl
 	common|fluent/hotkeys.ftl
 	common|fluent/rules.ftl
+	ra|fluent/campaign.ftl
 	ra|fluent/ra.ftl
 	ra|fluent/chrome.ftl
 	ra|fluent/hotkeys.ftl
+	ra|fluent/lua.ftl
 	ra|fluent/rules.ftl
 
 AllowUnusedFluentMessagesInExternalPackages: false

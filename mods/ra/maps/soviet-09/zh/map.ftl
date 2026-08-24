@@ -1,3 +1,6 @@
+## map.yaml
+title = "清除隐患 (Liability Elimination)"
+
 ## rules.yaml
 briefing = 
     盟军部队已经拦截并摧毁了一个运送我们秘密武器部件的车队。一辆卡车还在，但他们已经俘获了那辆卡车及其货物。

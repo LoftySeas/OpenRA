@@ -104,6 +104,12 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		const string ExitMapButton = "menu-ingame.exit-map";
 
 		[FluentReference]
+		const string PlayMapButton = "menu-ingame.play-map";
+
+		[FluentReference]
+		const string BackToEditorButton = "menu-ingame.back-to-editor";
+
+		[FluentReference]
 		const string ExitMapEditorTitle = "dialog-exit-map-editor.title";
 
 		[FluentReference]
@@ -520,7 +526,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				return;
 
 			var actionManager = world.WorldActor.Trait<EditorActionManager>();
-			var button = AddButton("PLAY_MAP", "Play Map");
+			var button = AddButton("PLAY_MAP", FluentProvider.GetMessage(PlayMapButton));
 			button.IsDisabled = () => leaving || string.IsNullOrEmpty(world.Map.Package.Name);
 			button.OnClick = () =>
 				{
@@ -581,7 +587,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			if (world.Type != WorldType.Regular || !lastGameEditor)
 				return;
 
-			AddButton("BACK_TO_EDITOR", "Back To Editor")
+			AddButton("BACK_TO_EDITOR", FluentProvider.GetMessage(BackToEditorButton))
 				.OnClick = () =>
 				{
 					hideMenu = true;

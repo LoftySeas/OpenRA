@@ -1,3 +1,6 @@
+## map.yaml
+title = "亚特瑞斯 02b (Atreides 02b)"
+
 ## rules.yaml
 briefing = 
     渗透帝 Basin 并建立我们的部队，直到它们足够强大以根除当地的哈肯尼存在。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "沙林毒气 2：澳洲惊魂 (Sarin Gas 2: Down Under)"
+
 ## rules.yaml
 briefing = 
     我们追踪了车队的行进路线到了一个地下设施。我们怀疑这是苏军主要沙林工厂的隐藏入口点。

@@ -22,20 +22,41 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		// Increment the version number when adding new stats
 		const int SystemInformationVersion = 6;
 
+		[FluentReference]
+		const string LabelAnonymousId = "label-system-info-anonymous-id";
+		[FluentReference]
+		const string LabelOsType = "label-system-info-os-type";
+		[FluentReference]
+		const string LabelOsVersion = "label-system-info-os-version";
+		[FluentReference]
+		const string LabelArchitecture = "label-system-info-architecture";
+		[FluentReference]
+		const string LabelDotnetRuntime = "label-system-info-dotnet-runtime";
+		[FluentReference]
+		const string LabelOpenglVersion = "label-system-info-opengl-version";
+		[FluentReference]
+		const string LabelWindowSize = "label-system-info-window-size";
+		[FluentReference]
+		const string LabelWindowScale = "label-system-info-window-scale";
+		[FluentReference]
+		const string LabelUiScale = "label-system-info-ui-scale";
+		[FluentReference]
+		const string LabelSystemLanguage = "label-system-info-system-language";
+
 		static Dictionary<string, (string Label, string Value)> GetSystemInformation()
 		{
 			return new Dictionary<string, (string, string)>
 			{
-				{ "id", ("Anonymous ID", Game.Settings.Debug.UUID) },
-				{ "platform", ("OS Type", Platform.CurrentPlatform.ToString()) },
-				{ "os", ("OS Version", Platform.OperatingSystem) },
-				{ "arch", ("Architecture", Platform.CurrentArchitecture.ToString()) },
-				{ "runtime", (".NET Runtime", Platform.RuntimeVersion) },
-				{ "gl", ("OpenGL Version", Game.Renderer.GLVersion) },
-				{ "windowsize", ("Window Size", $"{Game.Renderer.NativeResolution.Width}x{Game.Renderer.NativeResolution.Height}") },
-				{ "windowscale", ("Window Scale", Game.Renderer.NativeWindowScale.ToString("F2", CultureInfo.InvariantCulture)) },
-				{ "uiscale", ("UI Scale", Game.Settings.Graphics.UIScale.ToString("F2", CultureInfo.InvariantCulture)) },
-				{ "lang", ("System Language", CultureInfo.InstalledUICulture.TwoLetterISOLanguageName) }
+				{ "id", (FluentProvider.GetMessage(LabelAnonymousId), Game.Settings.Debug.UUID) },
+				{ "platform", (FluentProvider.GetMessage(LabelOsType), Platform.CurrentPlatform.ToString()) },
+				{ "os", (FluentProvider.GetMessage(LabelOsVersion), Platform.OperatingSystem) },
+				{ "arch", (FluentProvider.GetMessage(LabelArchitecture), Platform.CurrentArchitecture.ToString()) },
+				{ "runtime", (FluentProvider.GetMessage(LabelDotnetRuntime), Platform.RuntimeVersion) },
+				{ "gl", (FluentProvider.GetMessage(LabelOpenglVersion), Game.Renderer.GLVersion) },
+				{ "windowsize", (FluentProvider.GetMessage(LabelWindowSize), $"{Game.Renderer.NativeResolution.Width}x{Game.Renderer.NativeResolution.Height}") },
+				{ "windowscale", (FluentProvider.GetMessage(LabelWindowScale), Game.Renderer.NativeWindowScale.ToString("F2", CultureInfo.InvariantCulture)) },
+				{ "uiscale", (FluentProvider.GetMessage(LabelUiScale), Game.Settings.Graphics.UIScale.ToString("F2", CultureInfo.InvariantCulture)) },
+				{ "lang", (FluentProvider.GetMessage(LabelSystemLanguage), CultureInfo.InstalledUICulture.TwoLetterISOLanguageName) }
 			};
 		}
 

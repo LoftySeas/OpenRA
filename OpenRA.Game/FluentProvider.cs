@@ -54,7 +54,11 @@ namespace OpenRA
 			}
 		}
 
-		static ImmutableArray<string> BuildLanguagePaths(ImmutableArray<string> basePaths, IReadOnlyFileSystem fileSystem, string language)
+		// Visible to the test project so the campaign-briefing language-path regression test can
+		// exercise this helper directly. The smoke-test paths in `OpenRA.Test` already reference
+		// `OpenRA.Mods.Common` internals via its csproj's <ProjectReference> so no separate
+		// InternalsVisibleTo entry is needed there.
+		internal static ImmutableArray<string> BuildLanguagePaths(ImmutableArray<string> basePaths, IReadOnlyFileSystem fileSystem, string language)
 		{
 			if (language == "en")
 				return basePaths;
@@ -62,11 +66,14 @@ namespace OpenRA
 			var paths = new List<string>(basePaths);
 			foreach (var basePath in basePaths)
 			{
+				// Map-level `map.ftl` lives at the map's root (no `/` in the path) - the language
+				// variant is a sibling directory: `zh/map.ftl`. Mod-level paths always have a `/`
+				// after the package separator, so they go through the `parent/` branch as before.
 				var slash = basePath.LastIndexOf('/');
-				if (slash < 0)
-					continue;
+				var langPath = slash < 0
+					? language + "/" + basePath
+					: basePath[..(slash + 1)] + language + "/" + basePath[(slash + 1)..];
 
-				var langPath = basePath[..(slash + 1)] + language + "/" + basePath[(slash + 1)..];
 				if (fileSystem.Exists(langPath))
 					paths.Add(langPath);
 			}

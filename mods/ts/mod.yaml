@@ -186,6 +186,7 @@ FluentMessages:
 	ts|fluent/ts.ftl
 	ts|fluent/chrome.ftl
 	ts|fluent/hotkeys.ftl
+	ts|fluent/lua.ftl
 	ts|fluent/rules.ftl
 
 AllowUnusedFluentMessagesInExternalPackages: false

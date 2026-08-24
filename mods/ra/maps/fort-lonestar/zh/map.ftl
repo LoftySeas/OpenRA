@@ -1,3 +1,6 @@
+## map.yaml
+title = "孤星堡 (Fort Lonestar)"
+
 dropdown-difficulty =
     .label = 难度
     .description = 任务难度

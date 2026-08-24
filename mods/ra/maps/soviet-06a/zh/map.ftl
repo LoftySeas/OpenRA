@@ -1,3 +1,6 @@
+## map.yaml
+title = "格罗兹尼河桥 (Bridge over the River Grotzny)"
+
 ## rules.yaml
 briefing = 
     有一批特殊货物需要被运送到东北部的附近苏联基地。

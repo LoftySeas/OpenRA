@@ -24,6 +24,7 @@ label-extracting-archive = Extracting...
 label-extracting-archive-entry = Extracting { $entry }
 label-archive-extraction-failed = Archive extraction failed
 label-mirror-selection-failed = Online mirror is not available. Please install from an original disc.
+label-download-error = { $host }: Error: { $error }
 
 ## InstallFromSourceLogic
 label-detecting-sources = Detecting drives

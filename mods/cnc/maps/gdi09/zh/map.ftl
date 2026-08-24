@@ -1,3 +1,6 @@
+## map.yaml
+title = "09：守备多瑙河 (09:   Secure the Danube)"
+
 ## rules.yaml
 briefing = 
     清除海岸边的Nod炮塔，以便炮艇可以接近Nod基地。

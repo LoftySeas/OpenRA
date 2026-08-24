@@ -1,3 +1,6 @@
+## map.yaml
+title = "远方惊雷 (Distant Thunder)"
+
 ## rules.yaml
 briefing = 
     卡尔基斯岛含有我们需要的大量矿石。

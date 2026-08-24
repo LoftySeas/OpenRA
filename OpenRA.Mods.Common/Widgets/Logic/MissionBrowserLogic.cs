@@ -101,7 +101,9 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			if (title != null)
 			{
 				var titleText = title.GetText();
-				title.GetText = () => playingVideo != PlayingVideo.None ? selectedMap.Title : titleText;
+				title.GetText = () => playingVideo != PlayingVideo.None
+					? (selectedMap.TryGetMessage("title", out var t) ? t : selectedMap.Title)
+					: titleText;
 			}
 
 			widget.Get("MISSION_INFO").IsVisible = () => selectedMap != null;
@@ -260,8 +262,15 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 		void CreateMissionGroup(string title, IEnumerable<MapPreview> previews, Action onExit)
 		{
+			// Look up a translated form for the campaign group title (e.g. "Allied Campaign"
+			// -> "allied-campaign" -> "盟军战役"). The kebab-case key keeps the fluent message
+			// names short and unambiguous; the raw English title is shown as a fallback when
+			// the translation is not provided.
+			var fluentKey = title.ToLowerInvariant().Replace(' ', '-');
+			var groupTitle = FluentProvider.TryGetMessage(fluentKey, out var groupTranslation) ? groupTranslation : title;
+
 			var header = ScrollItemWidget.Setup(headerTemplate, () => false, () => { });
-			header.Get<LabelWidget>("LABEL").GetText = () => title;
+			header.Get<LabelWidget>("LABEL").GetText = () => groupTitle;
 			missionList.AddChild(header);
 
 			foreach (var preview in previews)
@@ -272,7 +281,16 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 					() => StartMissionClicked(onExit));
 
 				var label = item.Get<LabelWithTooltipWidget>("TITLE");
-				WidgetUtils.TruncateLabelToTooltip(label, preview.Title);
+
+				// Resolve the title from the map's fluent bundle (zh/map.ftl supplies a
+				// bilingual "中文 (English)" form when language=zh) and fall back to the
+				// raw English title if no translation is present. The full text is fed to
+				// the label without truncation because ScrollOnHover (set in the chrome
+				// YAML) takes care of the overflow: the title scrolls horizontally while
+				// the mouse is hovering, then loops.
+				var mapTitle = preview.TryGetMessage("title", out var translated) ? translated : preview.Title;
+				label.GetText = () => mapTitle;
+				label.GetTooltipText = () => mapTitle;
 
 				missionList.AddChild(item);
 			}

@@ -1,3 +1,6 @@
+## map.yaml
+title = "中暑 (Sunstroke)"
+
 ## 规则.yaml
 actor-4tnk-description = 重型坦克
     配备双管炮。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "求生 01 (Survival 01)"
+
 ## rules.yaml
 briefing = 
     陆地通信66总部。

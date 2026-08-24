@@ -1,3 +1,6 @@
+## map.yaml
+title = "哈科南 01b (Harkonnen 01b)"
+
 ## rules.yaml
 briefing = 
     在厄崔迪试图夺取该地区之前，从帝国盆地开采香料。处决任何试图阻止你的人。

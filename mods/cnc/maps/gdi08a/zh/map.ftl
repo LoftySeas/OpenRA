@@ -1,3 +1,6 @@
+## map.yaml
+title = "08a：重夺萨尔茨堡 (08a: Restore GDI Presence Near Salzburg)"
+
 ## rules.yaml
 briefing = 
     联合国制裁切断了全球防御倡议的资金，使野战部队陷入无助。

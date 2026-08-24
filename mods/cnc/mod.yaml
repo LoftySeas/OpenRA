@@ -152,9 +152,11 @@ FluentMessages:
 	common|fluent/ingame-debug.ftl
 	common|fluent/hotkeys.ftl
 	common|fluent/rules.ftl
+	cnc|fluent/campaign.ftl
 	cnc|fluent/cnc.ftl
 	cnc|fluent/chrome.ftl
 	cnc|fluent/hotkeys.ftl
+	cnc|fluent/lua.ftl
 	cnc|fluent/rules.ftl
 
 AllowUnusedFluentMessagesInExternalPackages: false

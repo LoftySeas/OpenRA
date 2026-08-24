@@ -219,6 +219,8 @@ menu-ingame =
     .resume = Resume
     .save-map = Save Map
     .exit-map = Exit Map Editor
+    .play-map = Play Map
+    .back-to-editor = Back To Editor
 
 dialog-leave-mission =
     .title = Leave Mission
@@ -329,12 +331,23 @@ options-lobby-slot =
     .bots = Bots
     .bots-disabled = Bots Disabled
 
+options-lobby-client =
+    .transfer-admin = Transfer Admin
+    .move-to-spectator = Move to Spectator
+
 ## MapPreviewLogic
 label-connecting = Connecting...
 label-downloading-map = Downloading { $size } kB
 label-downloading-map-progress = Downloading { $size } kB ({ $progress }%)
 button-retry-install = Retry Install
 button-retry-search = Retry Search
+
+## GameSaveBrowserLogic, LoadGameBrowserLogic
+label-save-duration = Duration: { $duration }
+label-save-duration-unknown = Duration: ?
+
+## ServerListLogic
+label-server-location-local-network = Local Network
 ## also MapChooserLogic
 label-created-by = Created by { $author }
 

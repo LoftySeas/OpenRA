@@ -1,3 +1,6 @@
+## map.yaml
+title = "世界屋脊 (Top o' the World)"
+
 ## rules.yaml
 actor-powerproxy-spyplane =
     .airstrikepower-name = 间谍飞机 (一次性使用)

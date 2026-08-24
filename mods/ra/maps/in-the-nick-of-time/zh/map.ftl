@@ -1,3 +1,6 @@
+## map.yaml
+title = "千钧一发 (In the Nick of Time)"
+
 ## rules.yaml
 briefing = 
     形势危急！苏联人已经占领了北部的一个小型科研基地。在冲突期间，一个时空传送器遭到严重损坏。我们担心它可能会爆炸。

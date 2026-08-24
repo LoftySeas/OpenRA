@@ -1,3 +1,6 @@
+## map.yaml
+title = "哈科南 06b (Harkonnen 06b)"
+
 ## rules.yaml
 briefing = 
     弱小的奥德无法与哈克南部队相抗衡。然而，走私的伊克斯技术可能打破这种力量平衡。

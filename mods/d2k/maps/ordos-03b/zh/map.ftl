@@ -1,3 +1,6 @@
+## map.yaml
+title = "厄尔德斯 03b (Ordos 03b)"
+
 ## rules.yaml
 briefing = 
     哈克南阻碍了香料生产。低效率是不可容忍的。他们必须被消除。

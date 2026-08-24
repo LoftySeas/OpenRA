@@ -42,6 +42,7 @@ Background@MISSIONBROWSER_PANEL:
 							Height: 25
 							TooltipContainer: TOOLTIP_CONTAINER
 							TooltipTemplate: SIMPLE_TOOLTIP
+							ScrollOnHover: True
 		Container@MISSION_INFO:
 			X: 318
 			Y: 50

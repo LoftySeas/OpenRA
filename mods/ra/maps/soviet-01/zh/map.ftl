@@ -1,3 +1,6 @@
+## map.yaml
+title = "血的教训 (Lesson in Blood)"
+
 ## rules.yaml
 briefing = 
     一个可怜的抵抗借口已经把自己封锁在这个村庄里。

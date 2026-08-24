@@ -92,6 +92,9 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		[FluentReference]
 		const string UnknownServerState = "label-unknown-server-state";
 
+		[FluentReference]
+		const string LocalNetwork = "label-server-location-local-network";
+
 		readonly string noServerSelected;
 		readonly string mapStatusSearching;
 		readonly string mapClassificationUnknown;
@@ -505,7 +508,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 							if (addressNode != null)
 								addressNode.Value.Value = bl.Address.ToString().Split(':')[0] + ":" + addressNode.Value.Value.Split(':')[1];
 
-							game.Nodes.Add(new MiniYamlNodeBuilder("Location", "Local Network"));
+							game.Nodes.Add(new MiniYamlNodeBuilder("Location", FluentProvider.GetMessage(LocalNetwork)));
 
 							lanGames.Add(new GameServer(game.Build()));
 						}

@@ -1,3 +1,6 @@
+## map.yaml
+title = "09：增援埃及 (09:   Reinforce Egypt)"
+
 ## rules.yaml
 briefing = 
     GDI试图重新夺回埃及。

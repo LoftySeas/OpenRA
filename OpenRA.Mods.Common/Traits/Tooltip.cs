@@ -31,6 +31,11 @@ namespace OpenRA.Mods.Common.Traits
 	[Desc("Shown in the build palette widget.")]
 	public class TooltipInfo : TooltipInfoBase, ITooltipInfo
 	{
+		// Expose the fluent Name through the interface so callers that work against
+		// ITooltipInfo (e.g. WorldTooltipLogic) can render the actor's specific name
+		// when the player has scouted it.
+		string ITooltipInfo.Name => Name;
+
 		[Desc("An optional generic name (i.e. \"Soldier\" or \"Structure\")" +
 			"to be shown to chosen players.")]
 		[FluentReference(optional: true)]
@@ -91,6 +96,8 @@ namespace OpenRA.Mods.Common.Traits
 		public ITooltipInfo TooltipInfo => info;
 
 		public Player Owner => self.EffectiveOwner != null ? self.EffectiveOwner.Owner : self.Owner;
+
+		public Actor Actor => self;
 
 		public Tooltip(Actor self, TooltipInfo info)
 			: base(info)

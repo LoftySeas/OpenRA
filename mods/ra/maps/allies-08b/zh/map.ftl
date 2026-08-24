@@ -1,3 +1,6 @@
+## map.yaml
+title = "守护时空传送仪 (b) (Protect the Chronosphere)"
+
 ## rules.yaml
 briefing = 
     我们最新的技术——时间停滞器，被安置在这个研究站中。计时器代表了关键实验完成的预定时间。苏军已经知道了此事并正在行动。

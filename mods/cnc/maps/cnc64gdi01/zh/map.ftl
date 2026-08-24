@@ -1,2 +1,5 @@
+## map.yaml
+title = "C&C64 特种行动 - GDI 1 (C&C64 Special Ops - GDI 1)"
+
 ## rules.yaml
 briefing = Nod正在对平民进行钛菌实验。使用突击兵清除降落地点周围的萨姆导弹阵地。一旦萨姆导弹阵地被中和，您将能够呼叫空袭。摧毁方尖碑，然后将有一辆MCV被交付来帮助您定位并摧毁生化设施。

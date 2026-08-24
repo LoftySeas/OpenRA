@@ -1,3 +1,6 @@
+## map.yaml
+title = "休克疗法 (Shock Therapy)"
+
 ## rules.yaml
 briefing = 
     一个边境小镇的居民开始支持盟军事业。这些人不再是苏军，而是我们伟大帝国的敌人。作为敌人，他们必须被摧毁。

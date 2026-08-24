@@ -1,3 +1,6 @@
+## map.yaml
+title = "五比一 (Five to One)"
+
 dropdown-difficulty =
     .label = 难度
     .description = 任务难度

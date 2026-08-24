@@ -1,3 +1,6 @@
+## map.yaml
+title = "暗中清理 (Covert cleanup)"
+
 ## rules.yaml
 briefing = 
     一名泄露了北部萨林毒气基地安全的间谍被夏娜情报组追踪回了瑞典隆德。

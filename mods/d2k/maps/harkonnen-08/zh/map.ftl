@@ -1,3 +1,6 @@
+## map.yaml
+title = "哈科南 08 (Harkonnen 08)"
+
 ## rules.yaml
 briefing = 
     奥多斯继续因获得新武器而变强。奥多斯知道哈克南的愤怒很快就会降临到他们身上，因此与厄崔迪结盟。

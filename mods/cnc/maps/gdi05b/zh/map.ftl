@@ -1,3 +1,6 @@
+## map.yaml
+title = "05b：修复 GDI 基地 (05b: Repair the GDI base)"
+
 ## rules.yaml
 briefing = 
     GDI的一个野战基地正在受到攻击。他们已经击退了一次进攻，但无法再承受另一次攻击。

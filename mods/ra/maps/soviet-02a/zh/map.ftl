@@ -1,3 +1,6 @@
+## map.yaml
+title = "红色警戒线 (a) (The Thin Red Line)"
+
 ## rules.yaml
 briefing = 
     明天，对德国的攻击就开始了，但今天，我们必须保护我们的设施免受盟军攻击。

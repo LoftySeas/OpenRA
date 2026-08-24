@@ -1,3 +1,6 @@
+## map.yaml
+title = "厄尔巴岛调查 (b) (Investigate Elba Island)"
+
 ## rules.yaml
 briefing = 
     我们已在厄尔巴岛上探测到盟军活动。盟军计划利用这个岛屿对苏联帝国发动攻击。

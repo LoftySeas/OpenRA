@@ -38,6 +38,11 @@ namespace OpenRA.Mods.Common.Widgets
 		public Func<Color> GetContrastColorDark;
 		public Func<Color> GetContrastColorLight;
 
+		// Optional horizontal pixel offset applied at draw time. When non-zero and the text
+		// overflows the widget bounds, the text is shifted left and clipped to the bounds
+		// (used by LabelWithTooltipWidget.ScrollOnHover). Leave at 0 for the normal layout.
+		public int ScrollOffsetX;
+
 		[ObjectCreator.UseCtor]
 		public LabelWidget(ModData modData)
 		{
@@ -104,13 +109,29 @@ namespace OpenRA.Mods.Common.Widgets
 			if (VAlign == TextVAlign.Bottom)
 				position += new int2(0, Bounds.Height - textSize.Y);
 
-			if (Align == TextAlign.Center)
-				position += new int2((Bounds.Width - textSize.X) / 2, 0);
+			// Apply scroll offset (LabelWithTooltipWidget.ScrollOnHover): when the text overflows
+			// the widget bounds and an offset is set, enable scissor clipping and shift the text
+			// left so the user can see the rest of the title by hovering. The non-scroll path
+			// stays as it was: text is aligned within the bounds and rendered without a clip.
+			var clippingForScroll = ScrollOffsetX != 0 && textSize.X > Bounds.Width && !WordWrap;
+			if (clippingForScroll)
+			{
+				Game.Renderer.EnableScissor(RenderBounds);
+				position += new int2(-ScrollOffsetX, 0);
+			}
+			else
+			{
+				if (Align == TextAlign.Center)
+					position += new int2((Bounds.Width - textSize.X) / 2, 0);
 
-			if (Align == TextAlign.Right)
-				position += new int2(Bounds.Width - textSize.X, 0);
+				if (Align == TextAlign.Right)
+					position += new int2(Bounds.Width - textSize.X, 0);
+			}
 
 			DrawInner(text, font, GetColor(), position);
+
+			if (clippingForScroll)
+				Game.Renderer.DisableScissor();
 		}
 
 		protected virtual void DrawInner(string text, SpriteFont font, Color color, int2 position)

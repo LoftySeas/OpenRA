@@ -1,3 +1,6 @@
+## map.yaml
+title = "亚特瑞斯 03a (Atreides 03a)"
+
 ## rules.yaml
 briefing = 
     快速将厄崔迪部队提升到战斗状态。防范突袭攻击，确保香料生产。

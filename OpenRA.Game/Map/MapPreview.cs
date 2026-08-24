@@ -117,7 +117,8 @@ namespace OpenRA
 				return key == "world" || key == "player";
 			}
 
-			public void SetCustomRules(ModData modData, IReadOnlyFileSystem fileSystem, Dictionary<string, MiniYaml> yaml, MiniYamlNode[][] modDataRules)
+			public void SetCustomRules(ModData modData, IReadOnlyFileSystem fileSystem,
+				Dictionary<string, MiniYaml> yaml, MiniYamlNode[][] modDataRules, string language = "en")
 			{
 				RuleDefinitions = LoadRuleSection(yaml, "Rules");
 				WeaponDefinitions = LoadRuleSection(yaml, "Weapons");
@@ -147,7 +148,20 @@ namespace OpenRA
 							text = builder.ToString();
 						}
 
-						FluentBundle = new FluentBundle("en", files, fileSystem, text);
+						// Expand the file list with the language-variant paths (e.g. `zh/map.ftl`) so
+						// the per-map bundle resolves campaign titles and briefings in the player's
+						// language instead of falling back to the English source.
+						var paths = FluentProvider.BuildLanguagePaths(files, fileSystem, language);
+						FluentBundle = new FluentBundle(language, paths, fileSystem, text);
+					}
+					else if (fileSystem.Exists("map.ftl"))
+					{
+						// Maps (notably RA/TD/TS campaigns) ship a `map.ftl` next to `map.yaml` for
+						// per-mission strings but rarely declare a `FluentMessages:` section. Pick
+						// the file up automatically so the language-variant `zh/map.ftl` (added by
+						// the translation pipeline) is loaded too via BuildLanguagePaths.
+						var autoPaths = FluentProvider.BuildLanguagePaths(["map.ftl"], fileSystem, language);
+						FluentBundle = new FluentBundle(language, autoPaths, fileSystem);
 					}
 					else
 						FluentBundle = null;
@@ -449,7 +463,7 @@ namespace OpenRA
 				newData.Status = MapStatus.Unavailable;
 			}
 
-			newData.SetCustomRules(modData, this, yaml, modDataRules);
+			newData.SetCustomRules(modData, this, yaml, modDataRules, Game.Settings?.Game?.Language ?? "en");
 
 			if (cache.LoadPreviewImages && p.Contains("map.png"))
 				using (var dataStream = p.GetStream("map.png"))
@@ -489,7 +503,7 @@ namespace OpenRA
 
 				newData.Players = players;
 				newData.PlayerCount = newData.Players.Players.Count(x => x.Value.Playable);
-				newData.SetCustomRules(modData, this, ruleDefinitions, null);
+				newData.SetCustomRules(modData, this, ruleDefinitions, null, Game.Settings?.Game?.Language ?? "en");
 
 				// Placeholder to satisfy server-side lint checks
 				newData.SpawnPoints = Exts.MakeArray(newData.PlayerCount, i => new CPos(i, i)).ToImmutableArray();
@@ -605,7 +619,7 @@ namespace OpenRA
 					var rulesString = Encoding.UTF8.GetString(Convert.FromBase64String(r.rules));
 					var rulesYaml = new MiniYaml("", MiniYaml.FromString(rulesString,
 						$"{yaml.NodeWithKey(nameof(r.rules)).Location.Name}:{nameof(r.rules)}")).ToDictionary();
-					newData.SetCustomRules(modData, this, rulesYaml, null);
+					newData.SetCustomRules(modData, this, rulesYaml, null, Game.Settings?.Game?.Language ?? "en");
 
 					// Map is for a different mod: update its information so it can be displayed
 					// in the cross-mod server browser UI, but mark it as unavailable so it can't

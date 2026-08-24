@@ -1,3 +1,6 @@
+## map.yaml
+title = "厄尔德斯 06a (Ordos 06a)"
+
 ## rules.yaml
 briefing = 
     必须保护太空港。所有其他行动都是次要的。不允许任何家族干扰我们的伊克斯武器抵达。

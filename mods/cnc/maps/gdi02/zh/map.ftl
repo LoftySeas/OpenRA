@@ -1,3 +1,6 @@
+## map.yaml
+title = "02：摧毁炼油厂 (02:   Knock out the Refinery)"
+
 ## rules.yaml
 briefing = 
     保卫你的阵地，部署MCV，然后建立一支足够强大的部队去寻找并摧毁该地区的Nod基地。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "GDI - 命运的转折 (GDI - Twist of Fate)"
+
 ## rules.yaml
 briefing = 
     我们在Nod领土上设立了一个小型侦察哨，但他们攻击并加强了该哨。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "厄尔德斯 01b (Ordos 01b)"
+
 ## rules.yaml
 briefing = 
     香料即是财富。通过在帝 Basin 中采集香料来为奥多斯效劳。如果哈肯尼势力试图阻断香料的流动——就将它们消灭。

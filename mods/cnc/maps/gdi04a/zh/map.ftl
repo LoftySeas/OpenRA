@@ -1,3 +1,6 @@
+## map.yaml
+title = "04a：取回离子炮 (04a: Get the Rods back)"
+
 ## rules.yaml
 briefing = 
     Nod已经占领了GDI的机密财产。

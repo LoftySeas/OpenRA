@@ -1,3 +1,6 @@
+## map.yaml
+title = "巨坦狂潮 (Monster Tank Madness)"
+
 ## rules.yaml
 briefing = 
     苏联超级坦克的创造者德米特里博士想叛逃。

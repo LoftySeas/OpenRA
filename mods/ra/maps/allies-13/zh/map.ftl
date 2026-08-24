@@ -1,3 +1,6 @@
+## map.yaml
+title = "聚焦爆破 (Focused Blast)"
+
 ## rules.yaml
 briefing = 
     陆地通信16总部。

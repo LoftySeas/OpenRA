@@ -28,6 +28,12 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		[FluentReference]
 		const string RenameSaveTitle = "dialog-rename-save.title";
 
+		[FluentReference("duration")]
+		const string Duration = "label-save-duration";
+
+		[FluentReference]
+		const string DurationUnknown = "label-save-duration-unknown";
+
 		[FluentReference]
 		const string RenameSavePrompt = "dialog-rename-save.prompt";
 
@@ -193,10 +199,10 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 					if (selectedSave != null && selectedSave.GlobalSettings.GameTimestep > 0 && selectedSave.LastOrdersFrame >= 0)
 					{
 						var duration = TimeSpan.FromMilliseconds((long)selectedSave.LastOrdersFrame * selectedSave.GlobalSettings.GameTimestep);
-						return "Duration: " + duration.ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture);
+						return FluentProvider.GetMessage(Duration, "duration", duration.ToString(@"hh\:mm\:ss", CultureInfo.InvariantCulture));
 					}
 
-					return "Duration: ?";
+					return FluentProvider.GetMessage(DurationUnknown);
 				};
 				savegameInfoDuration.IsVisible = () => selectedSave != null;
 			}

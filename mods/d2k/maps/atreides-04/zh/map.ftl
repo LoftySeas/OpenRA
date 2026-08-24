@@ -1,3 +1,6 @@
+## map.yaml
+title = "亚特瑞斯 04 (Atreides 04)"
+
 ## rules.yaml
 briefing = 
     我们的侦察兵已经发现隐藏的弗雷曼基地。必须打破哈克南对弗雷曼的封锁。

@@ -386,6 +386,12 @@ label-notice-container-outdated-version = You are running an outdated version of
 label-notice-container-unknown-version = You are running an unrecognized version of OpenRA. Download the latest version from www.openra.net
 label-notice-container-playtest-available = A preview of the next OpenRA release is available for testing. Download the playtest from www.openra.net
 
+## multiplayer-createserver.yaml
+default-server-name = My OpenRA Server
+
+## lobby-players.yaml, mainmenu-prompts.yaml, settings-gameplay.yaml
+label-default-player-name = Name
+
 ## lobby.yaml
 dropdownbutton-server-lobby-slots = Slot Admin
 button-server-lobby-reset-options = Reset Defaults
@@ -411,6 +417,18 @@ label-mainmenu-system-info-prompt-title = Establishing Battlefield Control
 label-mainmenu-system-info-prompt-text-a = We would like to collect some system details that will help us optimize OpenRA.
 label-mainmenu-system-info-prompt-text-b = With your permission, the following anonymous data will be sent each game launch:
 checkbox-mainmenu-system-info-prompt-sysinfo = Send System Information
+
+## SystemInfoPromptLogic
+label-system-info-anonymous-id = Anonymous ID
+label-system-info-os-type = OS Type
+label-system-info-os-version = OS Version
+label-system-info-architecture = Architecture
+label-system-info-dotnet-runtime = .NET Runtime
+label-system-info-opengl-version = OpenGL Version
+label-system-info-window-size = Window Size
+label-system-info-window-scale = Window Scale
+label-system-info-ui-scale = UI Scale
+label-system-info-system-language = System Language
 
 ## mainmenu-prompts.yaml, settings-display.yaml, settings-gameplay.yaml
 label-profile-section-header = Profile

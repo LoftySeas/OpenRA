@@ -1,3 +1,6 @@
+## map.yaml
+title = "哈科南 01a (Harkonnen 01a)"
+
 ## rules.yaml
 briefing = 
     在帝 Basin 中开采香料，别让阿特雷德斯试图夺取该区域。执行任何试图阻止你的人。

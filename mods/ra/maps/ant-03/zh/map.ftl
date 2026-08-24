@@ -1,3 +1,6 @@
+## map.yaml
+title = "围猎！(Hunt!)"
+
 ## rules.yaml
 briefing = 
     蚂蚁活动的源头已被确定在这一区域，我们怀疑它们的巢穴就在这里——必须被摧毁！

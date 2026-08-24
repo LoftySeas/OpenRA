@@ -1,3 +1,6 @@
+## map.yaml
+title = "10b：拆除猛犸坦克工厂 (10b: Destroy the Mammoth Tank Facility)"
+
 ## rules.yaml
 briefing = 
     GDI正在开发一种新型重装甲坦克。我们的间谍已定位到GDI研发基地。

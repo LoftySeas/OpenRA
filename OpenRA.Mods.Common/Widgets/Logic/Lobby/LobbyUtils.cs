@@ -42,6 +42,12 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		[FluentReference]
 		const string Slot = "options-lobby-slot.slot";
 
+		[FluentReference]
+		const string TransferAdmin = "options-lobby-client.transfer-admin";
+
+		[FluentReference]
+		const string MoveToSpectator = "options-lobby-client.move-to-spectator";
+
 		sealed record SlotDropDownOption(string Title, string Order, Func<bool> Selected);
 
 		public static void ShowSlotDropDown(DropDownButtonWidget dropdown, Session.Slot slot,
@@ -115,7 +121,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			{
 				options.Add(new DropDownOption
 				{
-					Title = "Transfer Admin",
+					Title = FluentProvider.GetMessage(TransferAdmin),
 					OnClick = () => orderManager.IssueOrder(Order.Command($"make_admin {c.Index}"))
 				});
 			}
@@ -124,7 +130,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			{
 				options.Add(new DropDownOption
 				{
-					Title = "Move to Spectator",
+					Title = FluentProvider.GetMessage(MoveToSpectator),
 					OnClick = () => orderManager.IssueOrder(Order.Command($"make_spectator {c.Index}"))
 				});
 			}

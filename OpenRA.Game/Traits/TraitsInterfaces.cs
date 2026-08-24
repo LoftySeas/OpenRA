@@ -210,10 +210,12 @@ namespace OpenRA.Traits
 	{
 		ITooltipInfo TooltipInfo { get; }
 		Player Owner { get; }
+		Actor Actor { get; }
 	}
 
 	public interface ITooltipInfo : ITraitInfoInterface
 	{
+		string Name { get; }
 		string TooltipForPlayerStance(PlayerRelationship stance);
 		bool IsOwnerRowVisible { get; }
 	}

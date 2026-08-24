@@ -1,3 +1,6 @@
+## map.yaml
+title = "03b：苏丹出逃 (03b: Sudanese Prison Break)"
+
 ## rules.yaml
 briefing = 
     GDI已建立了一个监狱营地，那里扣押了一些当地政界人士。

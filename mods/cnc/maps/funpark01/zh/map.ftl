@@ -1,3 +1,6 @@
+## map.yaml
+title = "异常行为 (Strange Behavior)"
+
 ## rules.yaml
 briefing = 
     该地区报告有奇怪的生物。

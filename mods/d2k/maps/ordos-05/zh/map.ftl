@@ -1,3 +1,6 @@
+## map.yaml
+title = "厄尔德斯 05 (Ordos 05)"
+
 ## rules.yaml
 briefing = 
     香料至上。厄崔迪控制着它。占领他们的太空港，引入MCV开始采矿。

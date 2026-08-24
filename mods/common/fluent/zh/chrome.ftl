@@ -385,6 +385,12 @@ label-notice-container-outdated-version = 你正在运行过时版本的 OpenRA�
 label-notice-container-unknown-version = 你正在运行未识别版本的 OpenRA。请从 www.openra.net 下载最新版本。
 label-notice-container-playtest-available = OpenRA 下一个版本的预览版已可供测试。请从 www.openra.net 下载测试版。
 
+## multiplayer-createserver.yaml
+default-server-name = 我的 OpenRA 服务器
+
+## lobby-players.yaml, mainmenu-prompts.yaml, settings-gameplay.yaml
+label-default-player-name = 名称
+
 ## lobby.yaml
 dropdownbutton-server-lobby-slots = 槽位管理
 button-server-lobby-reset-options = 重置默认值
@@ -410,6 +416,18 @@ label-mainmenu-system-info-prompt-title = 建立战场控制
 label-mainmenu-system-info-prompt-text-a = 我们希望收集一些系统信息来帮助优化 OpenRA。
 label-mainmenu-system-info-prompt-text-b = 经你同意后，以下匿名数据将在每次游戏启动时发送:
 checkbox-mainmenu-system-info-prompt-sysinfo = 发送系统信息
+
+## 系统信息提示逻辑
+label-system-info-anonymous-id = 匿名 ID
+label-system-info-os-type = 操作系统类型
+label-system-info-os-version = 操作系统版本
+label-system-info-architecture = 处理器架构
+label-system-info-dotnet-runtime = .NET 运行时
+label-system-info-opengl-version = OpenGL 版本
+label-system-info-window-size = 窗口尺寸
+label-system-info-window-scale = 窗口缩放
+label-system-info-ui-scale = 界面缩放
+label-system-info-system-language = 系统语言
 
 ## mainmenu-prompts.yaml, settings-display.yaml, settings-gameplay.yaml
 label-profile-section-header = 配置文件

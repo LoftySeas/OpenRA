@@ -57,3 +57,14 @@ button-production-types-naval-tooltip = Naval
 
 ## ingame-debug.yaml
 button-debug-panel-power-outage = Power Outage
+
+## missions.yaml
+allied-campaign = Allied Campaign
+soviet-campaign = Soviet Campaign
+counterstrike-allied-missions = Counterstrike Allied Missions
+counterstrike-soviet-missions = Counterstrike Soviet Missions
+aftermath-allied-missions = Aftermath Allied Missions
+aftermath-soviet-missions = Aftermath Soviet Missions
+openra-originals = OpenRA Originals
+ant-missions = Ant Missions
+missions = Missions

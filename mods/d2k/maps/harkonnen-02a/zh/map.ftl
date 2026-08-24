@@ -1,3 +1,6 @@
+## map.yaml
+title = "哈科南 02a (Harkonnen 02a)"
+
 ## rules.yaml
 briefing = 
     在帝 Basin 中的采矿营地强化你的部队。阿特雷德斯必须为他们的傲慢受到惩罚。让他们知道对抗哈肯尼家族的后果。

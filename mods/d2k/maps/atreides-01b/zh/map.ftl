@@ -1,3 +1,6 @@
+## map.yaml
+title = "亚特瑞斯 01b (Atreides 01b)"
+
 ## rules.yaml
 briefing = 
     从帝 Basin 中采集香料。建造一座香料精炼厂并 defending 它免受散布在整个盆地中的哈肯尼部队的攻击。你只被分配了有限的进攻部队——要明智地使用它们。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "沉船秘宝 (Sunken Treasure)"
+
 ## rules.yaml
 briefing = 
     陆地通信16总部。

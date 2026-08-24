@@ -1,3 +1,6 @@
+## map.yaml
+title = "03：摧毁防空导弹 (03:   Destroy the SAM Sites)"
+
 ## rules.yaml
 briefing = 
     发展你的部队力量来摧毁Nod基地。

@@ -40,6 +40,12 @@ namespace OpenRA.Mods.Cnc.Traits
 
 		public ITooltipInfo TooltipInfo => disguise.Disguised ? disguise.AsTooltipInfo : Info;
 
+		// Always return the real backing actor so callers (e.g. WorldTooltipLogic) can do a
+		// fog-of-war visibility check on the actual unit, not on the disguise target. Showing
+		// the disguised-as tooltip name when the real unit is hidden under fog would leak
+		// the disguise's identity to enemy players.
+		public Actor Actor => self;
+
 		public Player Owner
 		{
 			get

@@ -1,3 +1,6 @@
+## map.yaml
+title = "敌后行动 (a) (Behind the Lines)"
+
 ## rules.yaml
 briefing = 
     这个地区内的盟军基地正在成为一个麻烦。

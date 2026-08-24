@@ -1,2 +1,5 @@
+## map.yaml
+title = "Nod - 泰伯利亚变种 (Nod - The Tiberium Strain)"
+
 ## rules.yaml
 briefing = 附近的GDI基地正在进行进一步的离子研究。在此过程中，他们使用位于其生物中心的大量化学物质。摧毁所有生物中心，并"污染"所有单位和平民。保留所有其他建筑，这样就像是一场事故一样。

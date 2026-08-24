@@ -1,2 +1,5 @@
+## map.yaml
+title = "沉没代价 (b) (Sunk Costs)"
+
 ## rules.yaml
 briefing = 情报显示，盟军海军舰队的大部分将在该区域的一个基地进行加油。摧毁舰队和基地。小心他们的巡洋舰的远程射程。

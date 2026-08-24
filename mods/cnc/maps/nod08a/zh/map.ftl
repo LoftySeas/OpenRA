@@ -1,3 +1,6 @@
+## map.yaml
+title = "08a：扎伊尔之战 (08a: Battle for Zaire)"
+
 ## rules.yaml
 briefing = 
     由于我们部队数量有限，你必须充分利用所有可用资源。

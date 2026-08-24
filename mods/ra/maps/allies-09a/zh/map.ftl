@@ -1,3 +1,6 @@
+## map.yaml
+title = "撤离柯西金 (Evacuate Kosygin)"
+
 ## rules.yaml
 briefing = 
     斯大林顶尖的原子战略家之一，弗拉基米尔·科西金，希望叛逃。他对斯大林原子战略的了解对我们来说是无价之宝。我们将从他驻扎的里加营区撤离他。

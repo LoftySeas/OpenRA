@@ -24,6 +24,7 @@ label-extracting-archive = 正在解压...
 label-extracting-archive-entry = 正在解压 { $entry }
 label-archive-extraction-failed = 压缩包解压失败
 label-mirror-selection-failed = 在线镜像不可用，请从原始光盘安装。
+label-download-error = { $host }：错误：{ $error }
 
 ## InstallFromSourceLogic
 label-detecting-sources = 正在检测驱动器

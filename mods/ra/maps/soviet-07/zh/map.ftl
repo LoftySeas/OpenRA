@@ -1,3 +1,6 @@
+## map.yaml
+title = "核心要害 (Core of the Matter)"
+
 ## rules.yaml
 briefing = 
     盟军已经渗透了我们的一个核反应堆！他们已经篡改了核心，使得30分钟内就会发生熔毁。他们绝不能成功！

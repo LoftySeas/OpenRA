@@ -1,3 +1,6 @@
+## map.yaml
+title = "维兹奇戈伊河桥 (Bridge over the River VizchGoi)"
+
 ## rules.yaml
 briefing = 
     有一批特殊货物需要被运送到东北部的附近苏联基地。

@@ -452,3 +452,4 @@ find-destroy-bridge-stop-allied-reinforcements = 查找并摧毁盟军用来
 air-support-t-minus-3 = 很好，同志将军！我们的空军单位正在前往
     我们预计应该在大约三分钟内到达您的区域。
 allied-ground-reinforcements-stopped = 这应该能阻止盟军获得进一步的地面援军。
+lonestar-ai-sold-its-walls = 孤星 AI { $id } 变卖了城墙以获得更强的战斗力。

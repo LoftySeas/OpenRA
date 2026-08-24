@@ -1,3 +1,6 @@
+## map.yaml
+title = "哈科南 03a (Harkonnen 03a)"
+
 ## rules.yaml
 briefing =
     攻击并摧毁塔尔的厄崔迪基地。猛烈出击，消灭所有抵抗。

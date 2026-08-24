@@ -1,3 +1,6 @@
+## map.yaml
+title = "求生 02 (Survival 02)"
+
 ## rules.yaml
 briefing = 
     收到报告：

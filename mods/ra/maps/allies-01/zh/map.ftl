@@ -1,3 +1,6 @@
+## map.yaml
+title = "险象环生 (In the Thick of It)"
+
 ## rules.yaml
 briefing = 
     从苏联回合基地内救出爱因斯坦。

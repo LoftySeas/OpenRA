@@ -73,7 +73,13 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 							ownerColor = o.Color;
 
 						var stance = o == null || world.RenderPlayer == null ? PlayerRelationship.None : o.RelationshipWith(world.RenderPlayer);
-						labelText = viewport.ActorTooltip.TooltipInfo.TooltipForPlayerStance(stance);
+
+						// Once the player can see the actor (i.e. it is no longer hidden under the fog),
+						// show the actor's specific Name instead of the generic stand-in. This matches the
+						// original C&C behaviour: scouted enemies reveal their real name.
+						labelText = (viewport.ActorTooltip.Actor != null && viewport.ActorTooltip.Actor.CanBeViewedByPlayer(world.RenderPlayer))
+							? FluentProvider.GetMessage(viewport.ActorTooltip.TooltipInfo.Name)
+							: viewport.ActorTooltip.TooltipInfo.TooltipForPlayerStance(stance);
 						break;
 					}
 
@@ -86,6 +92,9 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 							ownerColor = o.Color;
 
 						var stance = o == null || world.RenderPlayer == null ? PlayerRelationship.None : o.RelationshipWith(world.RenderPlayer);
+
+						// Frozen actors (those hidden under the fog) keep the generic stand-in name.
+						// The original actor is not visible, so revealing its real name would defeat the fog.
 						labelText = viewport.FrozenActorTooltip.TooltipInfo.TooltipForPlayerStance(stance);
 						break;
 					}

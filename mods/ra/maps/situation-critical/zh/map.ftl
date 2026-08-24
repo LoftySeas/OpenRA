@@ -1,3 +1,6 @@
+## map.yaml
+title = "危急存亡 (Situation Critical)"
+
 ## rules.yaml
 briefing = 
     我们部队的一个激进派系偷走了生物武器，威胁要将其用在盟军阵地。由于武器极度不稳定，如果释放它可能会毁灭我们所有人。

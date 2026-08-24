@@ -1,3 +1,6 @@
+## map.yaml
+title = "06a：回收起爆器 (06a: Steal the Detonator)"
+
 dropdown-difficulty =
     .label = 难度
     .description = 任务的难度

@@ -130,12 +130,20 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 			var titleText = widget.Get<LabelWidget>("TITLE");
 
+			// The map's "title" fluent key (defined in map.ftl) holds the localized title
+			// (e.g. "险象环生 (In the Thick of It)"). Resolve it through the map's fluent
+			// bundle so the in-game info panel shows the localized title, not the raw
+			// English fallback. The map category prefix (e.g. "Campaign") is kept as-is.
 			var mapTitle = world.Map.Title;
 			var firstCategory = world.Map.Categories.FirstOrDefault();
+			var mapPreview = modData.MapCache[world.Map.Uid];
+			var localizedTitle = mapPreview != null && mapPreview.TryGetMessage("title", out var titleTranslation)
+				? titleTranslation
+				: mapTitle;
 			if (firstCategory != null)
-				mapTitle = firstCategory + ": " + mapTitle;
+				localizedTitle = firstCategory + ": " + localizedTitle;
 
-			titleText.GetText = () => mapTitle;
+			titleText.GetText = () => localizedTitle;
 		}
 
 		void SetupObjectivesPanel(ButtonWidget objectivesTabButton, Widget objectivesPanelContainer)

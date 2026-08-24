@@ -1,3 +1,6 @@
+## map.yaml
+title = "阻断生产 (Production Disruption)"
+
 ## rules.yaml
 briefing = 
     苏联正在建造一种能够发射海上对地导弹的新类别潜艇。我们不需要告诉你这些可能造成的破坏。

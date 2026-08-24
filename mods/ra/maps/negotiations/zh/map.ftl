@@ -1,3 +1,6 @@
+## map.yaml
+title = "谈判桌 (Negotiations)"
+
 ## rules.yaml
 briefing = 
     一支苏军部队躲进了一个小镇，威胁要每隔几分钟杀死一个人质，直到他们的要求被满足。我们不与恐怖主义者谈判——向他们解释这一点。

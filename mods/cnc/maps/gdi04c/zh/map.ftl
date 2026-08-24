@@ -1,3 +1,6 @@
+## map.yaml
+title = "04c：夺取比亚韦斯托克 (04c: Take Białystok)"
+
 ## rules.yaml
 briefing = 
     Nod正在试图占领并控制一个民宅小镇。

@@ -54,3 +54,14 @@ button-production-types-naval-tooltip = 海军
 
 ## ingame-debug.yaml
 button-debug-panel-power-outage = 电源中断
+
+## missions.yaml
+allied-campaign = 盟军战役
+soviet-campaign = 苏军战役
+counterstrike-allied-missions = 反攻 盟军任务
+counterstrike-soviet-missions = 反攻 苏军任务
+aftermath-allied-missions = 余波 盟军任务
+aftermath-soviet-missions = 余波 苏军任务
+openra-originals = OpenRA 原创
+ant-missions = 蚂蚁任务
+missions = 任务

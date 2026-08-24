@@ -78,12 +78,20 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			{
 				var widget = template.Clone();
 				var label = widget.Get<LabelWidget>("OBJECTIVE_TYPE");
-				label.GetText = () => objective.Type;
+
+				// The Type is the literal "Primary"/"Secondary" string - the fluent file ships it
+				// lowercase ("primary" / "secondary"), so look up the lowercased value. The raw
+				// string is shown as a fallback if the translation is missing.
+				label.GetText = () => FluentProvider.GetMessage(objective.Type.ToLowerInvariant());
 
 				var checkbox = widget.Get<CheckboxWidget>("OBJECTIVE_STATUS");
 				checkbox.IsChecked = () => objective.State != ObjectiveState.Incomplete;
 				checkbox.GetCheckmark = () => objective.State == ObjectiveState.Completed ? "tick" : "cross";
-				checkbox.GetText = () => objective.Description;
+
+				// The Description is the fluent key the mission script passed to AddObjective
+				// (e.g. "find-einstein"). Resolve it through the fluent bundle so the panel shows
+				// the localized text, not the raw key.
+				checkbox.GetText = () => FluentProvider.GetMessage(objective.Description);
 
 				parent.AddChild(widget);
 			}

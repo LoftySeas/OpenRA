@@ -149,6 +149,9 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		[FluentReference]
 		const string SaveDurationLong = "options-replay-duration.long";
 
+		[FluentReference("duration")]
+		const string LoadDuration = "label-save-duration";
+
 		[FluentReference("name", "number")]
 		const string EnumeratedBotName = "enumerated-bot-name";
 
@@ -231,7 +234,8 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			var savegameInfoDuration = saveInfo.GetOrNull<LabelWidget>("SAVEGAME_INFO_DURATION");
 			if (savegameInfoDuration != null)
 			{
-				savegameInfoDuration.GetText = () => "Duration: " + GameSaveUtils.FormatGameDuration(GameSaveUtils.GetGameDuration(selectedSave));
+				savegameInfoDuration.GetText = () => FluentProvider.GetMessage(LoadDuration, "duration",
+					GameSaveUtils.FormatGameDuration(GameSaveUtils.GetGameDuration(selectedSave)));
 				savegameInfoDuration.IsVisible = () => selectedSave != null;
 			}
 

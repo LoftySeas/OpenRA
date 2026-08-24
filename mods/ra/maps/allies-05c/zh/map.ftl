@@ -1,3 +1,6 @@
+## map.yaml
+title = "谭雅篇章 (c) (Tanya's Tale)"
+
 ## rules.yaml
 briefing = 
     救出塔妮雅。

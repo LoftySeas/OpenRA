@@ -1,3 +1,6 @@
+## map.yaml
+title = "试验场 (Proving Grounds)"
+
 ## rules.yaml
 actor-ats-name = 先进战术潜艇
 

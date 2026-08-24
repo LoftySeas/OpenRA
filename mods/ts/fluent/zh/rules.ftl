@@ -989,3 +989,4 @@ label-ts-map-generator-choice-coastlines-mixed =
    .label = 混合
 
 label-ts-map-generator-option-deny-walled-areas = 阻挡有墙的区域
+notification-firestorm-defense-ready = 火焰风暴防御就绪。

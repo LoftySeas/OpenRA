@@ -37,6 +37,9 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		[FluentReference]
 		const string DownloadFailed = "label-download-failed";
 
+		[FluentReference("host", "error")]
+		const string DownloadError = "label-download-error";
+
 		[FluentReference("host", "received", "suffix")]
 		const string DownloadingFrom = "label-downloading-from";
 
@@ -154,7 +157,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 				progressBar.Indeterminate = false;
 				progressBar.Percentage = 100;
-				getStatusText = () => $"{host}: Error: {s}";
+				getStatusText = () => FluentProvider.GetMessage(DownloadError, "host", host, "error", s);
 				retryButton.IsVisible = () => true;
 				cancelButton.OnClick = Ui.CloseWindow;
 			});

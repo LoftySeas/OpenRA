@@ -1,3 +1,6 @@
+## map.yaml
+title = "督战者 (Overseer)"
+
 ## rules.yaml
 briefing = 
     你必须保卫一个正在穿过盟军占领地区的苏联车队。使用新型米格喷气机和一队雅克战斗机，确保车队完整地穿越这个区域。

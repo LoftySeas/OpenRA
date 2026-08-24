@@ -1,2 +1,5 @@
+## map.yaml
+title = "04a：乌姆哈杰尔 (04a: Oum Hadjer)"
+
 ## rules.yaml
 briefing = GDI正试图迁移一个同情民兵的村民村。拦截车队并摧毁它。确保没有村民幸存，这将作为对任何可能反对我们的原住民的警告。

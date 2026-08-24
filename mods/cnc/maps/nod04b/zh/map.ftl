@@ -1,3 +1,6 @@
+## map.yaml
+title = "04b：毛派内战 (04b: Mao Civil War)"
+
 ## rules.yaml
 briefing = 
     一个支持我们事业的小村庄正越来越受到GDI的骚扰，兄弟会希望您帮助他们。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "07c：回收飞艇 (07c: Orca Theft)"
+
 ## rules.yaml
 briefing = 
     GDI已经让自己暴露于最致命的武器之下：信息。

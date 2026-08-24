@@ -1,3 +1,6 @@
+## map.yaml
+title = "07：终结 Nod 基地 (07:   Finish the Nod Base)"
+
 ## rules.yaml
 briefing = 
     之前的任务目标未完成。

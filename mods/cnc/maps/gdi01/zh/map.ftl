@@ -1,3 +1,6 @@
+## map.yaml
+title = "01：突袭滩头 (01:   Storm the Beachhead)"
+
 ## rules.yaml
 briefing = 
     使用提供的单位保护移动建造车（MCV）。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "哈科南 03b (Harkonnen 03b)"
+
 ## rules.yaml
 briefing = 
     攻击并摧毁位于西契塔布尔的厄崔迪基地。坚决打击，消灭所有抵抗力量。

@@ -1,3 +1,6 @@
+## map.yaml
+title = "01：尼库巴之死 (01:   Nikoomba's Demise)"
+
 ## rules.yaml
 briefing = 
     为了使兄弟会获得立足点，我们必须首先消除某些因素。

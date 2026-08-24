@@ -1,3 +1,6 @@
+## map.yaml
+title = "沙林毒气 1：镇压行动 (Sarin Gas 1: Crackdown)"
+
 ## rules.yaml
 briefing = 
     一艘苏军装有沙林神经毒气的车队在河边哨所停了下来进行加油。这是摧毁沙林运输队并消除该地区苏军威胁的绝佳机会。

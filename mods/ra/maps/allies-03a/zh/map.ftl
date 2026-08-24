@@ -1,3 +1,6 @@
+## map.yaml
+title = "死胡同 (a) (Dead End)"
+
 ## rules.yaml
 briefing = 
     陆地通信16总部。

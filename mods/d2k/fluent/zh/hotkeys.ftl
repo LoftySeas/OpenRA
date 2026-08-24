@@ -6,3 +6,4 @@ hotkey-description-productiontypeaircraft = 飞机标签页
 hotkey-description-productiontypetank = 坦克标签页
 hotkey-description-productiontypemerchant = 星港标签页
 hotkey-description-powerdown = 关闭电源模式
+hotkey-description-productiontypeupgrade = 升级标签页

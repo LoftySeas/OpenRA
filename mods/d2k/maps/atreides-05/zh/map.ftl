@@ -1,3 +1,6 @@
+## map.yaml
+title = "亚特瑞斯 05 (Atreides 05)"
+
 ## rules.yaml
 briefing =
     根据间谍报告，弗里曼人被关押在塔尔的远西北角。冲破哈克南的防线解救人质。
