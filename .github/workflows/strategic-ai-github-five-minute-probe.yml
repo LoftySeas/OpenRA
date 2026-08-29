@@ -1,0 +1,225 @@
+name: Strategic AI GitHub Runner Five Minute Probe
+
+on:
+  push:
+    branches: [ 'codex/strategic-ai-github-five-minute-probe' ]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Ubuntu one-match five-minute probe
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      SDL_AUDIODRIVER: dummy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+
+    steps:
+      - name: Clone exact probe commit
+        uses: actions/checkout@v7
+
+      - name: Install .NET 10 and runtime packages
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Xvfb and Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends xvfb xauth libgl1-mesa-dri libglx-mesa0 libopenal1 mesa-utils
+
+      - name: Build the Linux worker once
+        run: dotnet build -c Debug -nologo -warnaserror -p:TargetPlatform=linux-x64
+
+      - name: Prepare verified RA content and fixed probe input
+        run: |
+          mkdir -p "$RUNNER_TEMP/strategic-ai-content"
+          python3 tools/prepare_ra_content.py --support-dir "$RUNNER_TEMP/strategic-ai-content"
+
+          input="$RUNNER_TEMP/five-minute-probe-input"
+          mkdir -p "$input"
+          cp docs/ai/examples/automated-match-m3-candidate.json "$input/match.json"
+          cp docs/ai/examples/m3-candidate-baseline.json "$input/m3-candidate-baseline.json"
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "five-minute-probe-input" / "match.json"
+          value = json.loads(path.read_text(encoding="utf-8"))
+          value["maxWorldTicks"] = 90000
+          value["executionMode"] = "UNCAPPED"
+          path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Capture runner identity
+        run: |
+          root="$RUNNER_TEMP/five-minute-probe"
+          mkdir -p "$root"
+          python3 - <<'PY'
+          import json
+          import os
+          import platform
+          from pathlib import Path
+
+          keys = (
+              "GITHUB_REPOSITORY", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_SHA",
+              "RUNNER_NAME", "RUNNER_OS", "RUNNER_ARCH", "ImageOS", "ImageVersion",
+          )
+          value = {key: os.environ.get(key) for key in keys}
+          value["platform"] = platform.platform()
+          value["processor"] = platform.processor()
+          path = Path(os.environ["RUNNER_TEMP"]) / "five-minute-probe" / "runner-metadata.json"
+          path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+          lscpu > "$root/lscpu.txt"
+          free -b > "$root/memory-before.txt"
+          df -B1 "$RUNNER_TEMP" > "$root/disk-before.txt"
+          xvfb-run -a -s "-screen 0 1024x768x24" glxinfo -B > "$root/glxinfo.txt"
+
+      - name: Run one match for at most five minutes
+        shell: bash
+        run: |
+          xvfb-run -a -s "-screen 0 1024x768x24" python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, str(Path.cwd() / "tools"))
+          import strategic_ai_runner as runner
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "five-minute-probe"
+          support = root / "support"
+          support.mkdir(parents=True, exist_ok=True)
+          content = Path(os.environ["RUNNER_TEMP"]) / "strategic-ai-content" / "Content"
+          specification = Path(os.environ["RUNNER_TEMP"]) / "five-minute-probe-input" / "match.json"
+          runner.materialize_content(content, support)
+
+          engine = Path(os.environ["GITHUB_WORKSPACE"])
+          executable = engine / "bin" / "OpenRA"
+          command = runner.openra_command(
+              executable,
+              engine,
+              support,
+              f"Launch.Match={specification.resolve()}",
+          )
+          process = runner.invoke_process(
+              command,
+              root / "match.stdout.log",
+              root / "match.stderr.log",
+              300,
+          )
+
+          match_result = runner.read_json(support / "match-result.json")
+          strategic_log = support / "Logs" / "strategic-decisions.log"
+          decision_pattern = re.compile(r"decision tick=(\d+)\b")
+          decision_ticks = []
+          if strategic_log.is_file():
+              for line in strategic_log.read_text(encoding="utf-8", errors="replace").splitlines():
+                  match = decision_pattern.search(line)
+                  if match:
+                      decision_ticks.append(int(match.group(1)))
+
+          replay_files = []
+          replay_root = support / "Replays"
+          if replay_root.is_dir():
+              for replay in sorted(path for path in replay_root.rglob("*.orarep") if path.is_file()):
+                  replay_files.append({
+                      "relativePath": replay.relative_to(support).as_posix(),
+                      "sizeBytes": replay.stat().st_size,
+                      "sha256": hashlib.sha256(replay.read_bytes()).hexdigest(),
+                  })
+
+          specification_value = json.loads(specification.read_text(encoding="utf-8"))
+          exact_tick = None if match_result is None else match_result.get("finalWorldTick")
+          last_observed_tick = max(decision_ticks) if decision_ticks else None
+          tick_evidence = "EXACT_FINAL_TICK" if isinstance(exact_tick, int) else (
+              "STRATEGIC_LOG_LOWER_BOUND" if last_observed_tick is not None else "UNAVAILABLE"
+          )
+          measured_tick = exact_tick if isinstance(exact_tick, int) else last_observed_tick
+          elapsed = float(process.get("elapsedSeconds") or 0)
+          summary = {
+              "schemaVersion": "1.0.0",
+              "probeKind": "ONE_MATCH_FIVE_MINUTE_WALL_CLOCK",
+              "wallClockLimitSeconds": 300,
+              "wallClockIncludesStartup": True,
+              "maxWorldTicks": specification_value["maxWorldTicks"],
+              "executionMode": specification_value["executionMode"],
+              "candidateId": "squad-size-40-baseline",
+              "process": process,
+              "matchResult": match_result,
+              "tickEvidence": tick_evidence,
+              "measuredWorldTick": measured_tick,
+              "lastObservedStrategicDecisionTick": last_observed_tick,
+              "strategicDecisionCount": len(decision_ticks),
+              "observedTicksPerWallClockSecond": (
+                  round(measured_tick / elapsed, 3)
+                  if isinstance(measured_tick, int) and elapsed > 0 else None
+              ),
+              "replayFiles": replay_files,
+          }
+          runner.atomic_json(root / "probe-result.json", summary)
+          print(json.dumps(summary, indent=2, sort_keys=True))
+
+          if tick_evidence == "UNAVAILABLE":
+              raise SystemExit("The five-minute probe produced no world-tick evidence")
+          PY
+
+      - name: Capture final resources
+        if: always()
+        run: |
+          root="$RUNNER_TEMP/five-minute-probe"
+          free -b > "$root/memory-after.txt"
+          df -B1 "$RUNNER_TEMP" > "$root/disk-after.txt"
+
+      - name: Stage and audit non-proprietary probe evidence
+        if: always()
+        run: |
+          stage="$RUNNER_TEMP/strategic-ai-five-minute-probe-evidence"
+          mkdir -p "$stage"
+          tar \
+            --exclude='*/Content' \
+            --exclude='*/Content/*' \
+            --exclude='ra-quickinstall.zip' \
+            -czf "$stage/github-runner-five-minute-probe.tar.gz" \
+            -C "$RUNNER_TEMP" \
+            five-minute-probe \
+            five-minute-probe-input
+
+          ARCHIVE="$stage/github-runner-five-minute-probe.tar.gz" python3 - <<'PY'
+          import os
+          import re
+          import tarfile
+
+          archive = os.environ["ARCHIVE"]
+          allowed = ("five-minute-probe/", "five-minute-probe-input/")
+          forbidden = re.compile(r"(^|/)(Content)(/|$)|(^|/)ra-quickinstall\.zip$|\.(mix|aud)$", re.IGNORECASE)
+          with tarfile.open(archive, "r:gz") as value:
+              names = value.getnames()
+          invalid = [
+              name for name in names
+              if name.startswith(("/", "\\"))
+              or ".." in name.replace("\\", "/").split("/")
+              or not name.startswith(allowed)
+              or forbidden.search(name)
+          ]
+          if invalid:
+              raise SystemExit(f"Unsafe or proprietary artifact entries: {invalid!r}")
+          print(f"Artifact audit passed: {len(names)} entries")
+          PY
+
+      - name: Upload five-minute probe evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: strategic-ai-github-five-minute-probe-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/strategic-ai-five-minute-probe-evidence/github-runner-five-minute-probe.tar.gz
+          if-no-files-found: error
+          retention-days: 1
