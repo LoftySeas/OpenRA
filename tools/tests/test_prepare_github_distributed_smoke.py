@@ -271,7 +271,7 @@ class PrepareGithubDistributedSmokeTests(unittest.TestCase):
             Path(__file__).resolve().parents[2]
             / ".github"
             / "workflows"
-            / "strategic-ai-github-twenty-shard-canary.yml"
+            / "strategic-ai-github-calibration.yml"
         ).read_text(encoding="utf-8")
 
         self.assertIn("max-parallel: 20", workflow)

@@ -1,4 +1,4 @@
-name: Strategic AI GitHub Distributed Smoke
+name: Strategic AI GitHub Twenty-Shard Canary
 
 on:
   workflow_dispatch:
@@ -9,14 +9,14 @@ permissions:
 
 jobs:
   shard:
-    name: Distributed smoke shard ${{ matrix.shard }}
+    name: Twenty-shard canary shard ${{ matrix.shard }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 20
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     env:
       SHARD_INDEX: ${{ matrix.shard }}
       SDL_AUDIODRIVER: dummy
@@ -24,7 +24,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
 
     steps:
-      - name: Check out the exact distributed-smoke commit
+      - name: Check out the exact canary commit
         uses: actions/checkout@v7
 
       - name: Initialize isolated shard roots
@@ -62,7 +62,7 @@ jobs:
           python3 tools/prepare_ra_content.py \
             --support-dir "$RUNNER_TEMP/strategic-ai-content-$SHARD_INDEX"
 
-      - name: Materialize the registered four-job shard
+      - name: Materialize the registered one-job canary shard
         run: |
           registration_root="$RUNNER_TEMP/m3-distributed-registration-$SHARD_INDEX"
           python3 tools/prepare_m3_experiment.py \
@@ -75,7 +75,8 @@ jobs:
             --shard-index "$SHARD_INDEX" \
             --controller-script tools/strategic_ai_runner.py \
             --execution-sha "$GITHUB_SHA" \
-            --design-base-sha 31e30ab3831f03b66e7fb49b96aa5825ba6ba437
+            --design-base-sha 31e30ab3831f03b66e7fb49b96aa5825ba6ba437 \
+            --profile twenty-shard-canary
 
       - name: Capture runner identity and hardware
         run: |
@@ -101,7 +102,7 @@ jobs:
           ).isoformat().replace("+00:00", "Z")
           value["platform"] = platform.platform()
           value["processor"] = platform.processor()
-          value["maxWorkers"] = 4
+          value["maxWorkers"] = 1
           root = Path(os.environ["RUNNER_TEMP"]) / (
               "m3-distributed-shard-" + os.environ["SHARD_INDEX"]
           )
@@ -116,12 +117,12 @@ jobs:
       - name: Publish shard readiness marker
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-distributed-ready-shard-${{ matrix.shard }}-${{ github.run_attempt }}
+          name: strategic-ai-twenty-shard-ready-${{ matrix.shard }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/m3-distributed-shard-${{ matrix.shard }}/runner-metadata.json
           if-no-files-found: error
           retention-days: 1
 
-      - name: Synchronize the four shard workers
+      - name: Synchronize all twenty one-worker shards
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -135,8 +136,8 @@ jobs:
 
           attempt = os.environ["GITHUB_RUN_ATTEMPT"]
           expected = {
-              f"strategic-ai-distributed-ready-shard-{shard}-{attempt}"
-              for shard in range(4)
+              f"strategic-ai-twenty-shard-ready-{shard}-{attempt}"
+              for shard in range(20)
           }
           api_root = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
           url = (
@@ -146,26 +147,38 @@ jobs:
           headers = {
               "Accept": "application/vnd.github+json",
               "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
-              "User-Agent": "OpenRA-distributed-smoke-barrier",
+              "User-Agent": "OpenRA-twenty-shard-canary-barrier",
               "X-GitHub-Api-Version": "2022-11-28",
           }
-          deadline = time.monotonic() + 240
-          observed = set()
+          deadline = time.monotonic() + 600
+          readiness = {}
           while time.monotonic() < deadline:
               request = urllib.request.Request(url, headers=headers)
               with urllib.request.urlopen(request, timeout=15) as response:
                   value = json.load(response)
-              observed = {
-                  artifact.get("name")
+              readiness = {
+                  artifact.get("name"): artifact.get("created_at")
                   for artifact in value.get("artifacts", [])
-                  if not artifact.get("expired")
+                  if artifact.get("name") in expected
+                  and not artifact.get("expired")
+                  and isinstance(artifact.get("created_at"), str)
               }
-              if expected <= observed:
+              if expected <= readiness.keys():
                   break
-              time.sleep(2)
+              time.sleep(30)
           else:
-              missing = sorted(expected - observed)
+              missing = sorted(expected - readiness.keys())
               raise SystemExit(f"Timed out waiting for shard readiness artifacts: {missing}")
+
+          created = {
+              name: datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+              for name, timestamp in readiness.items()
+              if name in expected
+          }
+          release_at = max(created.values()) + datetime.timedelta(seconds=60)
+          remaining = (release_at - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
+          if remaining > 0:
+              time.sleep(remaining)
 
           root = Path(os.environ["RUNNER_TEMP"]) / (
               "m3-distributed-shard-" + os.environ["SHARD_INDEX"]
@@ -175,7 +188,12 @@ jobs:
                   {
                       "schemaVersion": "1.0.0",
                       "expectedArtifacts": sorted(expected),
-                      "observedExpectedArtifacts": sorted(expected & observed),
+                      "readinessCreatedUtc": {
+                          name: readiness[name] for name in sorted(expected)
+                      },
+                      "pollIntervalSeconds": 30,
+                      "releaseDelaySeconds": 60,
+                      "releaseAtUtc": release_at.isoformat().replace("+00:00", "Z"),
                       "releasedUtc": datetime.datetime.now(
                           datetime.timezone.utc
                       ).isoformat().replace("+00:00", "Z"),
@@ -187,9 +205,9 @@ jobs:
           )
           PY
 
-      - name: Run four jobs with four workers
+      - name: Run one sentinel with one worker
         run: |
-          bash tools/run_github_quick_tier.sh 4 \
+          bash tools/run_github_quick_tier.sh 1 \
             "$RUNNER_TEMP/m3-distributed-registration-$SHARD_INDEX/github-distributed-smoke-manifest.json" \
             "$RUNNER_TEMP/m3-distributed-shard-$SHARD_INDEX/run" \
             "$RUNNER_TEMP/strategic-ai-content-$SHARD_INDEX/Content" \
@@ -218,7 +236,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-distributed-smoke-shard-${{ matrix.shard }}-${{ github.run_attempt }}
+          name: strategic-ai-twenty-shard-canary-${{ matrix.shard }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/m3-distributed-artifact-${{ matrix.shard }}/shard-${{ matrix.shard }}.tar.gz
           if-no-files-found: error
           retention-days: 1
@@ -233,7 +251,7 @@ jobs:
 
           shard = os.environ["SHARD_INDEX"]
           root = Path(os.environ["RUNNER_TEMP"]) / f"m3-distributed-shard-{shard}"
-          exit_path = root / "controller-exit-code-workers-4.txt"
+          exit_path = root / "controller-exit-code-workers-1.txt"
           result_path = root / "run" / "experiment-result.json"
           if not exit_path.is_file():
               raise SystemExit("Shard controller exit-code evidence is missing")
@@ -247,7 +265,7 @@ jobs:
           PY
 
   aggregate:
-    name: Aggregate distributed smoke
+    name: Aggregate twenty-shard canary
     needs: shard
     if: always()
     runs-on: ubuntu-22.04
@@ -256,7 +274,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
 
     steps:
-      - name: Check out the exact distributed-smoke commit
+      - name: Check out the exact canary commit
         uses: actions/checkout@v7
 
       - name: Initialize aggregation roots
@@ -266,10 +284,10 @@ jobs:
         if: always()
         uses: actions/download-artifact@v8
         with:
-          pattern: strategic-ai-distributed-smoke-shard-*-${{ github.run_attempt }}
+          pattern: strategic-ai-twenty-shard-canary-*-${{ github.run_attempt }}
           path: ${{ runner.temp }}/distributed-artifacts
 
-      - name: Validate and aggregate the distributed smoke
+      - name: Validate and aggregate the twenty-shard canary
         id: aggregate
         if: always()
         env:
@@ -282,7 +300,8 @@ jobs:
             --run-id "$GITHUB_RUN_ID" \
             --run-attempt "$GITHUB_RUN_ATTEMPT" \
             --repository "$GITHUB_REPOSITORY" \
-            --expected-execution-sha "$GITHUB_SHA"
+            --expected-execution-sha "$GITHUB_SHA" \
+            --profile twenty-shard-canary
           aggregate_exit=$?
           set -e
           echo "exit_code=$aggregate_exit" >> "$GITHUB_OUTPUT"
@@ -291,7 +310,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-distributed-smoke-result-${{ github.run_attempt }}
+          name: strategic-ai-twenty-shard-canary-result-${{ github.run_attempt }}
           path: ${{ runner.temp }}/distributed-aggregate/distributed-smoke-result.json
           if-no-files-found: error
           retention-days: 1
@@ -302,6 +321,6 @@ jobs:
           AGGREGATE_EXIT: ${{ steps.aggregate.outputs.exit_code }}
         run: |
           if [[ "$AGGREGATE_EXIT" != "0" ]]; then
-            echo "Distributed smoke aggregation failed with exit code ${AGGREGATE_EXIT:-missing}." >&2
+            echo "Twenty-shard canary aggregation failed with exit code ${AGGREGATE_EXIT:-missing}." >&2
             exit "${AGGREGATE_EXIT:-1}"
           fi
