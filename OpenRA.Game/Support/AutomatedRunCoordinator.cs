@@ -16,7 +16,8 @@ namespace OpenRA
 	public static class AutomatedRunCoordinator
 	{
 		public static bool IsActive => AutomatedMatchRunner.IsActive || ReplayVerificationRunner.IsActive;
-		internal static bool UsesUncappedLogic => AutomatedMatchRunner.UsesUncappedLogic;
+		internal static bool UsesUncappedLogic =>
+			AutomatedMatchRunner.UsesUncappedLogic || ReplayVerificationRunner.UsesUncappedLogic;
 		internal static int? DeterministicBotRandomSeed =>
 			AutomatedMatchRunner.IsActive ? AutomatedMatchRunner.DeterministicBotRandomSeed : null;
 

@@ -83,7 +83,7 @@ jobs:
           df -B1 "$RUNNER_TEMP" > "$root/disk-before.txt"
           xvfb-run -a -s "-screen 0 1024x768x24" glxinfo -B > "$root/glxinfo.txt"
 
-      - name: Run one match for at most five minutes
+      - name: Run one match and verify its replay
         shell: bash
         run: |
           xvfb-run -a -s "-screen 0 1024x768x24" python3 - <<'PY'
@@ -130,14 +130,51 @@ jobs:
                       decision_ticks.append(int(match.group(1)))
 
           replay_files = []
+          replay_paths = []
           replay_root = support / "Replays"
           if replay_root.is_dir():
               for replay in sorted(path for path in replay_root.rglob("*.orarep") if path.is_file()):
+                  replay_paths.append(replay)
                   replay_files.append({
                       "relativePath": replay.relative_to(support).as_posix(),
                       "sizeBytes": replay.stat().st_size,
                       "sha256": hashlib.sha256(replay.read_bytes()).hexdigest(),
                   })
+
+          verification_process = None
+          verification_result = None
+          verification_decision_count = None
+          if len(replay_paths) == 1:
+              verification_support = root / "verification-support"
+              verification_support.mkdir(parents=True, exist_ok=True)
+              runner.materialize_content(content, verification_support)
+              verification_command = runner.openra_command(
+                  executable,
+                  engine,
+                  verification_support,
+                  f"Launch.VerifyReplay={replay_paths[0].resolve()}",
+              )
+              verification_process = runner.invoke_process(
+                  verification_command,
+                  root / "verification.stdout.log",
+                  root / "verification.stderr.log",
+                  300,
+              )
+              verification_result = runner.read_json(
+                  verification_support / "replay-verification-result.json"
+              )
+              verification_strategic_log = (
+                  verification_support / "Logs" / "strategic-decisions.log"
+              )
+              if verification_strategic_log.is_file():
+                  verification_decision_count = sum(
+                      "decision" in line or "init-failure" in line
+                      for line in verification_strategic_log.read_text(
+                          encoding="utf-8", errors="replace"
+                      ).splitlines()
+                  )
+              else:
+                  verification_decision_count = 0
 
           specification_value = json.loads(specification.read_text(encoding="utf-8"))
           exact_tick = None
@@ -173,12 +210,26 @@ jobs:
                   if isinstance(measured_tick, int) and elapsed > 0 else None
               ),
               "replayFiles": replay_files,
+              "verificationProcess": verification_process,
+              "verificationResult": verification_result,
+              "verificationStrategicDecisionCount": verification_decision_count,
           }
           runner.atomic_json(root / "probe-result.json", summary)
           print(json.dumps(summary, indent=2, sort_keys=True))
 
           if tick_evidence == "UNAVAILABLE":
               raise SystemExit("The five-minute probe produced no world-tick evidence")
+          if len(replay_paths) != 1:
+              raise SystemExit(f"Expected exactly one replay, found {len(replay_paths)}")
+          if (
+              verification_process is None
+              or verification_process.get("timedOut")
+              or verification_process.get("exitCode") != 0
+              or verification_result is None
+              or verification_result.get("status") != "VERIFIED"
+              or verification_decision_count != 0
+          ):
+              raise SystemExit("Replay verification did not produce clean VERIFIED evidence")
           PY
 
       - name: Capture final resources

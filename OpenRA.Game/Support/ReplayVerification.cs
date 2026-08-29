@@ -62,6 +62,8 @@ namespace OpenRA
 		static string pendingReplayPath;
 
 		public static bool IsActive => pendingReplayPath != null;
+		internal static bool UsesUncappedLogic =>
+			result?.Status == "VERIFYING" && !finalized;
 
 		public static void Start(string replayPath)
 		{
@@ -289,11 +291,11 @@ namespace OpenRA
 			pendingReplayPath = null;
 		}
 
-		internal static void SetResultForTest(VerificationResult verificationResult)
+		internal static void SetResultForTest(VerificationResult verificationResult, bool finalizedFlag = true)
 		{
 			result = verificationResult;
 			pendingReplayPath = "test.orarep";
-			finalized = true;
+			finalized = finalizedFlag;
 		}
 	}
 }

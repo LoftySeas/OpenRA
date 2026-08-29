@@ -67,5 +67,18 @@ namespace OpenRA.Test
 			Assert.That(AutomatedRunCoordinator.IsActive, Is.True);
 			Assert.That(AutomatedRunCoordinator.GetExitCode(), Is.EqualTo(4));
 		}
+
+		[TestCase("LOADING", false)]
+		[TestCase("VERIFYING", true)]
+		[TestCase("VERIFIED", false)]
+		public void CoordinatorUsesUncappedLogicOnlyWhileReplayIsVerifying(string status, bool expected)
+		{
+			ReplayVerificationRunner.SetResultForTest(new ReplayVerificationRunner.VerificationResult
+			{
+				Status = status,
+			}, finalizedFlag: false);
+
+			Assert.That(AutomatedRunCoordinator.UsesUncappedLogic, Is.EqualTo(expected));
+		}
 	}
 }
