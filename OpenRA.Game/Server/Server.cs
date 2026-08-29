@@ -127,6 +127,31 @@ namespace OpenRA.Server
 		public List<string> TempBans = [];
 		public string GeneratedMapData;
 
+		// Set by LobbyCommands on receiving a host "schedule_match_timeout <MaxWorldTicks>" command.
+		// Mirrors OrderManager.ScheduledMatchTimeoutTick; the server-side copy gates admin/duplicate
+		// requests in LobbyCommands. Bound to this Server instance so it is reaped with the server.
+		public int? ScheduledMatchTimeoutTick { get; private set; }
+		public int? ScheduledMatchEndTick { get; private set; }
+
+		public bool TryScheduleMatchTimeout(int target)
+		{
+			if (target <= 0 || ScheduledMatchTimeoutTick.HasValue)
+				return false;
+
+			ScheduledMatchTimeoutTick = target;
+			return true;
+		}
+
+		public bool TryScheduleMatchEnd(int target)
+		{
+			if (target <= 0 || ScheduledMatchEndTick.HasValue ||
+				!ScheduledMatchTimeoutTick.HasValue || target >= ScheduledMatchTimeoutTick.Value)
+				return false;
+
+			ScheduledMatchEndTick = target;
+			return true;
+		}
+
 		// Managed by LobbyCommands
 		public MapPreview Map;
 		public readonly MapStatusCache MapStatusCache;

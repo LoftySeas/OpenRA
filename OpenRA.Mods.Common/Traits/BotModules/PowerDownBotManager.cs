@@ -1,4 +1,4 @@
-﻿#region Copyright & License Information
+#region Copyright & License Information
 /*
  * Copyright (c) The OpenRA Developers and Contributors
  * This file is part of OpenRA, which is free software. It is made
@@ -76,7 +76,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		protected override void TraitEnabled(Actor self)
 		{
-			toggleTick = world.LocalRandom.Next(Info.Interval);
+			toggleTick = world.BotRandom.Next(Info.Interval);
 		}
 
 		// We calculate the approximate power changing if toggled on. Since we have no idea on the conditions set by users

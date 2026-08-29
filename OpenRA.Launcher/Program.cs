@@ -43,10 +43,20 @@ namespace OpenRA.Launcher
 
 			try
 			{
-				return (int)Game.InitializeAndRun(args);
+				var result = Game.InitializeAndRun(args);
+
+				// Automated-run exit codes are documented integers that the supervisor
+				// switches on. Preflight errors are contained by the active runner, which
+				// writes its result and winds down through Game.Exit before returning here.
+				if (AutomatedRunCoordinator.IsActive)
+					return AutomatedRunCoordinator.GetExitCode();
+
+				return (int)result;
 			}
 			catch (Exception e)
 			{
+				if (AutomatedRunCoordinator.IsActive)
+					return AutomatedRunCoordinator.GetExitCode();
 				ExceptionHandler.HandleFatalError(e);
 				return (int)RunStatus.Error;
 			}

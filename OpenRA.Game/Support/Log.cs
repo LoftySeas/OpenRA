@@ -26,7 +26,7 @@ namespace OpenRA
 		public TextWriter Writer;
 	}
 
-	readonly record struct ChannelData(string Channel, string Text);
+	readonly record struct ChannelData(string Channel, string Text, ManualResetEventSlim FlushCompletion = null);
 
 	public static class Log
 	{
@@ -79,15 +79,27 @@ namespace OpenRA
 			while (!token.IsCancellationRequested)
 			{
 				while (reader.TryRead(out var item))
-					WriteValue(item);
+					ProcessItem(item);
 
 				Thread.Sleep(1);
 			}
 
 			while (reader.TryRead(out var item))
-				WriteValue(item);
+				ProcessItem(item);
 
 			FlushToDisk();
+		}
+
+		static void ProcessItem(ChannelData item)
+		{
+			if (item.FlushCompletion == null)
+			{
+				WriteValue(item);
+				return;
+			}
+
+			FlushToDisk();
+			item.FlushCompletion.Set();
 		}
 
 		static void WriteValue(ChannelData item)
@@ -140,8 +152,11 @@ namespace OpenRA
 			{
 				try
 				{
-					var writer = File.CreateText(filename);
-					writer.AutoFlush = false;
+					var writer = new StreamWriter(new FileStream(
+						filename, FileMode.Create, FileAccess.Write, FileShare.Read))
+					{
+						AutoFlush = false
+					};
 
 					Channels.TryAdd(channelName,
 						new ChannelInfo
@@ -165,6 +180,16 @@ namespace OpenRA
 		public static void Write(string channelName, Exception e)
 		{
 			ChannelWriter.TryWrite(new ChannelData(channelName, $"{e.Message}{Environment.NewLine}{e.StackTrace}"));
+		}
+
+		public static void Flush()
+		{
+			if (CancellationToken.IsCancellationRequested)
+				return;
+
+			using var completion = new ManualResetEventSlim();
+			if (ChannelWriter.TryWrite(new ChannelData(null, null, completion)))
+				completion.Wait();
 		}
 
 		public static void Dispose()

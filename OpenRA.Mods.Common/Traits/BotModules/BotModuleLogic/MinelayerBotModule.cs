@@ -1,4 +1,4 @@
-﻿#region Copyright & License Information
+#region Copyright & License Information
 /*
  * Copyright (c) The OpenRA Developers and Contributors
  * This file is part of OpenRA, which is free software. It is made
@@ -95,7 +95,7 @@ namespace OpenRA.Mods.Common.Traits
 		protected override void TraitEnabled(Actor self)
 		{
 			// Avoid all AIs reevaluating assignments on the same tick, randomize their initial evaluation delay.
-			minAssignRoleDelayTicks = world.LocalRandom.Next(0, Info.ScanTick);
+			minAssignRoleDelayTicks = world.BotRandom.Next(0, Info.ScanTick);
 			alertedTicks = 0;
 			conflictPositionLength = 0;
 			favoritePositionsLength = 0;
@@ -145,7 +145,7 @@ namespace OpenRA.Mods.Common.Traits
 						if (enemies.Length == 0)
 							return;
 
-						var enemy = enemies.Random(world.LocalRandom);
+						var enemy = enemies.Random(world.BotRandom);
 
 						foreach (var minelayer in minelayers)
 						{

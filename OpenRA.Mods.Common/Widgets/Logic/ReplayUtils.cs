@@ -46,27 +46,23 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		{
 			onCancel ??= DoNothing;
 
-			if (replayMeta == null)
-				return IncompatibleReplayDialog(modData, onCancel, IncompatibleReplayPrompt);
-
-			var version = replayMeta.GameInfo.Version;
-			if (version == null)
-				return IncompatibleReplayDialog(modData, onCancel, UnknownVersion);
-
-			var mod = replayMeta.GameInfo.Mod;
-			if (mod == null)
-				return IncompatibleReplayDialog(modData, onCancel, UnknownMod);
-
-			if (!Game.Mods.ContainsKey(mod))
-				return IncompatibleReplayDialog(modData, onCancel, UnvailableMod, "mod", mod);
-
-			if (Game.Mods[mod].Metadata.Version != version)
-				return IncompatibleReplayDialog(modData, onCancel, IncompatibleVersion, "version", version);
-
-			if (replayMeta.GameInfo.GetMapPreview(modData).Status != MapStatus.Available)
-				return IncompatibleReplayDialog(modData, onCancel, UnvailableMap, "map", replayMeta.GameInfo.MapUid);
-
-			return true;
+			return ReplayCompatibility.Check(replayMeta, modData) switch
+			{
+				ReplayCompatibilityStatus.Compatible => true,
+				ReplayCompatibilityStatus.MissingMetadata =>
+					IncompatibleReplayDialog(modData, onCancel, IncompatibleReplayPrompt),
+				ReplayCompatibilityStatus.UnknownVersion =>
+					IncompatibleReplayDialog(modData, onCancel, UnknownVersion),
+				ReplayCompatibilityStatus.UnknownMod =>
+					IncompatibleReplayDialog(modData, onCancel, UnknownMod),
+				ReplayCompatibilityStatus.UnavailableMod =>
+					IncompatibleReplayDialog(modData, onCancel, UnvailableMod, "mod", replayMeta.GameInfo.Mod),
+				ReplayCompatibilityStatus.IncompatibleVersion =>
+					IncompatibleReplayDialog(modData, onCancel, IncompatibleVersion, "version", replayMeta.GameInfo.Version),
+				ReplayCompatibilityStatus.UnavailableMap =>
+					IncompatibleReplayDialog(modData, onCancel, UnvailableMap, "map", replayMeta.GameInfo.MapUid),
+				_ => throw new InvalidOperationException("Unknown replay compatibility status."),
+			};
 		}
 
 		static bool IncompatibleReplayDialog(ModData modData, Action onCancel, string text, params object[] args)

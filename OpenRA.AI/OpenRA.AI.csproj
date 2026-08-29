@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<!-- OpenRA.AI is only published in official Red Alert
+		     packaging (install_assemblies passes CopyAiDll=True).
+		     Mod SDK packaging that does not need the M1 strategic
+		     command assembly can pass CopyAiDll=False to skip it.
+		     The match between this and OpenRA.Mods.Cnc is
+		     intentional: both assemblies ship when their respective
+		     flag is True, and are otherwise treated as private. -->
+		<IsPublishable Condition="'$(CopyAiDll)' == 'False'">false</IsPublishable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\OpenRA.Game\OpenRA.Game.csproj">
+			<Private>False</Private>
+		</ProjectReference>
+		<ProjectReference Include="..\OpenRA.Mods.Common\OpenRA.Mods.Common.csproj">
+			<Private>False</Private>
+		</ProjectReference>
+	</ItemGroup>
+</Project>

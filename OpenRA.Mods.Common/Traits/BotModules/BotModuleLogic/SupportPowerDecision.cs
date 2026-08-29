@@ -117,7 +117,7 @@ namespace OpenRA.Mods.Common.Traits
 			return answer;
 		}
 
-		public int GetNextScanTime(World world) { return world.LocalRandom.Next(MinimumScanTimeInterval, MaximumScanTimeInterval); }
+		public int GetNextScanTime(World world) { return world.BotRandom.Next(MinimumScanTimeInterval, MaximumScanTimeInterval); }
 
 		/// <summary>Makes up part of a decision, describing how to evaluate a target.</summary>
 		public class Consideration

@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="OpenRA.AI/OpenRA.AI.csproj" />
   <Project Path="OpenRA.Game/OpenRA.Game.csproj" />
   <Project Path="OpenRA.Launcher/OpenRA.Launcher.csproj" />
   <Project Path="OpenRA.Mods.Cnc/OpenRA.Mods.Cnc.csproj" />

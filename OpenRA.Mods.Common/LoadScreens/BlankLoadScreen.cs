@@ -46,6 +46,7 @@ namespace OpenRA.Mods.Common.LoadScreens
 		public virtual void StartGame(Arguments args)
 		{
 			Launch = new LaunchArguments(args);
+			Launch.ValidateAutomatedEntryPoints();
 			Ui.ResetAll();
 			Game.Settings.Save();
 
@@ -54,6 +55,19 @@ namespace OpenRA.Mods.Common.LoadScreens
 				Console.WriteLine($"Saving benchmark data into {Path.Combine(Platform.SupportDir, "Logs")}");
 
 				Game.BenchmarkMode(Launch.Benchmark);
+			}
+
+			// Start a fully configured local match without opening the shell map or lobby UI.
+			if (!string.IsNullOrEmpty(Launch.Match))
+			{
+				Game.StartAutomatedMatch(Launch.Match);
+				return;
+			}
+
+			if (!string.IsNullOrEmpty(Launch.VerifyReplay))
+			{
+				Game.StartReplayVerification(Launch.VerifyReplay);
+				return;
 			}
 
 			// Join a server directly

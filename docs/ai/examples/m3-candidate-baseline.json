@@ -1,0 +1,6 @@
+{
+  "schemaVersion": "1.0.0",
+  "candidateId": "squad-size-40-baseline",
+  "squadSize": 40,
+  "notes": "M1 accepted baseline; generated experiments must preserve this file byte-for-byte."
+}

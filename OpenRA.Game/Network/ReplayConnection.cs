@@ -33,6 +33,7 @@ namespace OpenRA.Network
 		public readonly bool IsValid;
 		public readonly Session LobbyInfo;
 		public readonly string Filename;
+		internal bool IsExhausted => chunks.Count == 0 && sync.Count == 0;
 
 		public ReplayConnection(string replayFilename)
 		{

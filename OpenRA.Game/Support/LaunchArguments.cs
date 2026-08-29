@@ -31,6 +31,12 @@ namespace OpenRA
 		[Desc("Automatically start playing the given map.")]
 		public string Map;
 
+		[Desc("Automatically run the local match described by the given JSON specification.")]
+		public string Match;
+
+		[Desc("Automatically verify the given replay and write a machine-readable result.")]
+		public string VerifyReplay;
+
 		public LaunchArguments(Arguments args)
 		{
 			if (args == null)
@@ -63,6 +69,20 @@ namespace OpenRA
 				Log.Write("client", $"Failed to parse Launch.URI or Launch.Connect: {ex.Message}");
 				return null;
 			}
+		}
+
+		public void ValidateAutomatedEntryPoints()
+		{
+			var hasConnection = !string.IsNullOrEmpty(Connect) || !string.IsNullOrEmpty(URI);
+			if (!string.IsNullOrEmpty(Match) &&
+				(hasConnection || !string.IsNullOrEmpty(Map) || !string.IsNullOrEmpty(Replay) || !string.IsNullOrEmpty(VerifyReplay)))
+				throw new ArgumentException(
+					"Launch.Match cannot be combined with Launch.Connect, Launch.URI, Launch.Map, Launch.Replay, or Launch.VerifyReplay.");
+
+			if (!string.IsNullOrEmpty(VerifyReplay) &&
+				(hasConnection || !string.IsNullOrEmpty(Map) || !string.IsNullOrEmpty(Replay)))
+				throw new ArgumentException(
+					"Launch.VerifyReplay cannot be combined with Launch.Connect, Launch.URI, Launch.Map, or Launch.Replay.");
 		}
 	}
 }

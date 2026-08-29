@@ -77,7 +77,7 @@ namespace OpenRA.Mods.Common.Traits
 		protected override void TraitEnabled(Actor self)
 		{
 			// Avoid all AIs reevaluating assignments on the same tick, randomize their initial evaluation delay.
-			minCaptureDelayTicks = world.LocalRandom.Next(0, Info.MinimumCaptureDelay);
+			minCaptureDelayTicks = world.BotRandom.Next(0, Info.MinimumCaptureDelay);
 		}
 
 		void IBotTick.BotTick(IBot bot)
@@ -120,7 +120,7 @@ namespace OpenRA.Mods.Common.Traits
 				return;
 
 			var randPlayer = world.Players.Where(p => !p.Spectating
-				&& Info.CapturableRelationships.HasRelationship(player.RelationshipWith(p))).Random(world.LocalRandom);
+				&& Info.CapturableRelationships.HasRelationship(player.RelationshipWith(p))).Random(world.BotRandom);
 
 			var targetOptions = Info.CheckCaptureTargetsForVisibility
 				? GetVisibleActorsBelongingToPlayer(randPlayer)

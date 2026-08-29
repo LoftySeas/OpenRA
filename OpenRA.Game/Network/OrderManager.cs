@@ -46,6 +46,31 @@ namespace OpenRA.Network
 		public int NetFrameNumber { get; private set; }
 		public int LocalFrameNumber;
 
+		// Set by UnitOrders.ProcessOrder on receiving a server-dispatched "ScheduleMatchTimeout" Order.
+		// Read by AutomatedMatchRunner.Tick to enforce the timeout deterministically; bound to this
+		// OrderManager instance so it is reaped when the world/connection is disposed and does not
+		// leak between successive matches or replays.
+		public int? ScheduledMatchTimeoutTick { get; private set; }
+		public int? ScheduledMatchEndTick { get; private set; }
+
+		public bool TryScheduleMatchTimeout(int target)
+		{
+			if (target <= 0 || ScheduledMatchTimeoutTick.HasValue)
+				return false;
+
+			ScheduledMatchTimeoutTick = target;
+			return true;
+		}
+
+		public bool TryScheduleMatchEnd(int target)
+		{
+			if (target <= 0 || ScheduledMatchEndTick.HasValue)
+				return false;
+
+			ScheduledMatchEndTick = target;
+			return true;
+		}
+
 		public TickTime LastTickTime;
 
 		public bool GameStarted => NetFrameNumber != 0;
@@ -71,6 +96,8 @@ namespace OpenRA.Network
 		/// </summary>
 		/// <remarks>Should only be set in <see cref="OutOfSync"/>.</remarks>
 		public bool IsOutOfSync { get; private set; } = false;
+		public int? OutOfSyncFrame { get; private set; }
+		public int? LastValidatedSyncFrame { get; private set; }
 
 		public struct ClientOrder
 		{
@@ -85,14 +112,23 @@ namespace OpenRA.Network
 
 		void OutOfSync(int frame)
 		{
-			if (IsOutOfSync)
+			if (!TryRecordOutOfSyncFrame(frame))
 				return;
 
 			syncReport.DumpSyncReport(frame);
 			World.OutOfSync();
-			IsOutOfSync = true;
 
 			TextNotificationsManager.AddSystemLine(DesyncCompareLogs, "frame", frame);
+		}
+
+		internal bool TryRecordOutOfSyncFrame(int frame)
+		{
+			if (IsOutOfSync)
+				return false;
+
+			OutOfSyncFrame = frame;
+			IsOutOfSync = true;
+			return true;
 		}
 
 		public void StartGame()
@@ -164,6 +200,8 @@ namespace OpenRA.Network
 			{
 				if (s.SyncHash != sync.SyncHash || s.DefeatState != sync.DefeatState)
 					OutOfSync(sync.Frame);
+				else if (!LastValidatedSyncFrame.HasValue || sync.Frame > LastValidatedSyncFrame.Value)
+					LastValidatedSyncFrame = sync.Frame;
 			}
 			else
 				syncForFrame.Add(sync.Frame, (sync.SyncHash, sync.DefeatState));
@@ -200,6 +238,7 @@ namespace OpenRA.Network
 		}
 
 		bool IsReadyForNextFrame => GameStarted && pendingOrders.All(p => p.Value.Count > 0);
+		internal bool IsWaitingForOrders => GameStarted && IsNetFrame && !IsReadyForNextFrame;
 
 		public int SuggestedTimestep
 		{

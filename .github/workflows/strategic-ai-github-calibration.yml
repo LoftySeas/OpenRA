@@ -1,0 +1,167 @@
+name: Strategic AI GitHub Runner Calibration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ 'codex/strategic-ai-github-calibration' ]
+
+permissions:
+  contents: read
+
+jobs:
+  calibrate:
+    name: Ubuntu 1/2/4/5 worker calibration
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    env:
+      SDL_AUDIODRIVER: dummy
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+
+    steps:
+      - name: Clone exact calibration commit
+        uses: actions/checkout@v7
+
+      - name: Install .NET 10 and runtime packages
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Xvfb and Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends xvfb xauth libgl1-mesa-dri libglx-mesa0 libopenal1 mesa-utils time
+
+      - name: Build the Linux worker once
+        run: dotnet build -c Debug -nologo -warnaserror -p:TargetPlatform=linux-x64
+
+      - name: Prepare verified RA content
+        run: |
+          mkdir -p "$RUNNER_TEMP/strategic-ai-content"
+          python3 tools/prepare_ra_content.py --support-dir "$RUNNER_TEMP/strategic-ai-content"
+
+      - name: Materialize the frozen 20-job calibration
+        run: |
+          python3 tools/prepare_m3_experiment.py \
+            --plan docs/ai/examples/m3-experiment-plan.json \
+            --phase training \
+            --output-dir "$RUNNER_TEMP/m3-calibration-registration"
+          python3 tools/prepare_github_runner_calibration.py \
+            --source-manifest "$RUNNER_TEMP/m3-calibration-registration/experiment-manifest.json" \
+            --output-manifest "$RUNNER_TEMP/m3-calibration-registration/github-calibration-manifest.json"
+
+      - name: Capture runner identity
+        run: |
+          mkdir -p "$RUNNER_TEMP/m3-calibration"
+          python3 - <<'PY'
+          import json
+          import os
+          import platform
+          from pathlib import Path
+
+          keys = (
+              "GITHUB_REPOSITORY", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_SHA",
+              "RUNNER_NAME", "RUNNER_OS", "RUNNER_ARCH", "ImageOS", "ImageVersion",
+          )
+          value = {key: os.environ.get(key) for key in keys}
+          value["platform"] = platform.platform()
+          value["processor"] = platform.processor()
+          path = Path(os.environ["RUNNER_TEMP"]) / "m3-calibration" / "runner-metadata.json"
+          path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+          uname -a > "$RUNNER_TEMP/m3-calibration/uname.txt"
+          lscpu > "$RUNNER_TEMP/m3-calibration/lscpu.txt"
+          free -b > "$RUNNER_TEMP/m3-calibration/memory-before.txt"
+          df -B1 "$RUNNER_TEMP" > "$RUNNER_TEMP/m3-calibration/disk-before.txt"
+          xvfb-run -a -s "-screen 0 1024x768x24" glxinfo -B > "$RUNNER_TEMP/m3-calibration/glxinfo.txt"
+
+      - name: Run 1, 2, 4, and 5 worker calibration
+        shell: bash
+        run: |
+          set -uo pipefail
+          root="$RUNNER_TEMP/m3-calibration"
+          samples="$root/resource-samples.csv"
+          echo 'unix_ms,mem_available_bytes,load_1m,openra_processes,openra_rss_kib,disk_available_bytes' > "$samples"
+
+          set +e
+          /usr/bin/time -v -o "$root/calibration-time.txt" \
+            xvfb-run -a -s "-screen 0 1024x768x24" \
+              python3 tools/strategic_ai_runner.py calibrate \
+                --manifest "$RUNNER_TEMP/m3-calibration-registration/github-calibration-manifest.json" \
+                --output-root "$root" \
+                --content-dir "$RUNNER_TEMP/strategic-ai-content/Content" \
+                --engine-dir "$GITHUB_WORKSPACE" \
+                --worker-counts 1 2 4 5 \
+                --continue-after-failure \
+                --skip-build &
+          calibration_pid=$!
+
+          while kill -0 "$calibration_pid" 2>/dev/null; do
+            unix_ms=$(date +%s%3N)
+            mem_kib=$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo)
+            load_1m=$(awk '{ print $1 }' /proc/loadavg)
+            read -r process_count rss_kib < <(
+              ps -eo rss=,args= | awk '/\/bin\/OpenRA( |$)/ { count += 1; rss += $1 } END { print count + 0, rss + 0 }'
+            )
+            disk_bytes=$(df -B1 --output=avail "$RUNNER_TEMP" | tail -n 1 | tr -d ' ')
+            echo "$unix_ms,$((mem_kib * 1024)),$load_1m,$process_count,$rss_kib,$disk_bytes" >> "$samples"
+            sleep 1
+          done
+          wait "$calibration_pid"
+          controller_exit=$?
+          set -e
+          echo "$controller_exit" > "$root/controller-exit-code.txt"
+
+          test -f "$root/efficiency-decision.json"
+          test -f "$root/calibration-equivalence.json"
+
+      - name: Validate measurement completeness
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "m3-calibration"
+          decision = json.loads((root / "efficiency-decision.json").read_text(encoding="utf-8"))
+          expected = [1, 2, 4, 5]
+          if decision.get("calibratedWorkerCounts") != expected:
+              raise SystemExit(f"Incomplete worker counts: {decision.get('calibratedWorkerCounts')!r}")
+          runs = decision.get("runs") or []
+          if [run.get("workers") for run in runs] != expected:
+              raise SystemExit("Calibration summaries are incomplete")
+          if any(run.get("jobCount") != 20 for run in runs):
+              raise SystemExit("A calibration run does not contain all 20 jobs")
+          equivalence = decision.get("crossRunEquivalence") or {}
+          if equivalence.get("workerCounts") != expected:
+              raise SystemExit("Cross-run equivalence evidence is incomplete")
+          print(json.dumps({
+              "status": decision.get("status"),
+              "selectedWorkers": decision.get("selectedWorkers"),
+              "runs": runs,
+              "crossRunMismatchCount": equivalence.get("mismatchCount"),
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Stage non-proprietary calibration evidence
+        if: always()
+        run: |
+          stage="$RUNNER_TEMP/strategic-ai-calibration-evidence"
+          mkdir -p "$stage"
+          tar \
+            --exclude='*/Content' \
+            --exclude='*/Content/*' \
+            --exclude='ra-quickinstall.zip' \
+            -czf "$stage/github-runner-calibration.tar.gz" \
+            -C "$RUNNER_TEMP" \
+            m3-calibration \
+            m3-calibration-registration
+
+      - name: Upload calibration evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: strategic-ai-github-runner-calibration-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/strategic-ai-calibration-evidence/github-runner-calibration.tar.gz
+          if-no-files-found: error
+          retention-days: 1

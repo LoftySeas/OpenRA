@@ -182,7 +182,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		ActorInfo ChooseRandomUnitToBuild(ProductionQueue queue)
 		{
-			var buildableThings = queue.BuildableItems().Shuffle(world.LocalRandom).ToArray();
+			var buildableThings = queue.BuildableItems().Shuffle(world.BotRandom).ToArray();
 			if (buildableThings.Length == 0)
 				return null;
 

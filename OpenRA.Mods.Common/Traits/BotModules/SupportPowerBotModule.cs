@@ -169,7 +169,7 @@ namespace OpenRA.Mods.Common.Traits
 
 			// Pick a random location with above average attractiveness.
 			var averageAttractiveness = totalAttractiveness / suitableLocations.Count;
-			return suitableLocations.Shuffle(world.LocalRandom)
+			return suitableLocations.Shuffle(world.BotRandom)
 				.First(x => x.Attractiveness >= averageAttractiveness)
 				.UV.ToCPos(map);
 		}

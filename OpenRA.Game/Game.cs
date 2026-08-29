@@ -105,7 +105,12 @@ namespace OpenRA
 
 		public static void JoinReplay(string replayFile)
 		{
-			JoinInner(new OrderManager(new ReplayConnection(replayFile)));
+			JoinReplay(new ReplayConnection(replayFile));
+		}
+
+		internal static void JoinReplay(ReplayConnection replayConnection)
+		{
+			JoinInner(new OrderManager(replayConnection));
 		}
 
 		static void JoinLocal()
@@ -258,6 +263,7 @@ namespace OpenRA
 			OrderManager.World.PostLoadComplete(worldRenderer);
 
 			AfterGameStart();
+			AutomatedRunCoordinator.WorldStarted(OrderManager.World);
 		}
 
 		public static void RestartGame()
@@ -299,18 +305,62 @@ namespace OpenRA
 
 		public static void CreateAndStartLocalServer(string mapUID, IEnumerable<Order> setupOrders)
 		{
+			CreateAndStartLocalServer(mapUID, _ => setupOrders);
+		}
+
+		internal static void CreateAndStartLocalServer(
+			string mapUID, Func<Session, IEnumerable<Order>> setupOrders, bool isSkirmish = false)
+		{
 			OrderManager om = null;
 
-			void LobbyReady()
+			// Wait until the server-side session is fully primed before injecting the
+			// setup orders. The first LobbyInfoChanged event may fire while the map
+			// preview is still being loaded, the slot list is still empty, or the
+			// local admin client has not yet transitioned to Ready; in that state
+			// setup orders that reference slot IDs, bot controllers, or map-locked
+			// lobby options would either be ignored or rejected with a confusing
+			// "slot unavailable" error. Re-arm on each LobbyInfoChanged and only
+			// commit when the preconditions are met; if the server is misconfigured
+			// (wrong map UID) the local runner surfaces a clear failure instead of
+			// silently rethrowing into the global exception handler.
+			void OnLobbyInfoChanged()
 			{
-				LobbyInfoChanged -= LobbyReady;
-				foreach (var o in setupOrders)
+				var lobby = om.LobbyInfo;
+				if (lobby == null)
+					return;
+
+				// The map preview must have loaded and match the requested UID before
+				// the local server exposes the slot list that the setup orders
+				// reference. Without this guard, the first LobbyInfoChanged event
+				// can fire with Map == null and lobby.Slots empty, which produces
+				// "slot 'Multi0' is unavailable for bots" when the bot controller
+				// assignment is rejected by the server.
+				if (lobby.GlobalSettings.Map != mapUID)
+					return;
+
+				if (lobby.Slots == null || lobby.Slots.Count == 0)
+					return;
+
+				// The local admin client must be present so the server accepts the
+				// setup orders as the authoritative source for slot/team/faction/
+				// ready state. Without the admin client, the orders would either be
+				// dropped (no recipient) or attributed to a stale client index.
+				var admin = lobby.Clients.FirstOrDefault(c => c.IsAdmin);
+				if (admin == null)
+					return;
+
+				LobbyInfoChanged -= OnLobbyInfoChanged;
+
+				// Any setup-order exception propagates to Game.InitializeAndRun,
+				// which records the failure into match-result.json and converts
+				// it to a documented exit code via the Launch.Match path.
+				foreach (var o in setupOrders(lobby))
 					om.IssueOrder(o);
 			}
 
-			LobbyInfoChanged += LobbyReady;
+			LobbyInfoChanged += OnLobbyInfoChanged;
 
-			om = JoinServer(CreateLocalServer(mapUID), "");
+			om = JoinServer(CreateLocalServer(mapUID, isSkirmish), "");
 		}
 
 		public static bool IsHost
@@ -334,11 +384,56 @@ namespace OpenRA
 
 		public static RunStatus InitializeAndRun(string[] args)
 		{
-			Initialize(new Arguments(args));
+			try
+			{
+				Initialize(new Arguments(args));
 
-			// Proactively collect memory during loading to reduce peak memory.
-			GC.Collect();
-			return Run();
+				// Proactively collect memory during loading to reduce peak memory.
+				GC.Collect();
+				Run();
+				AutomatedRunCoordinator.FinalizeResult();
+
+				// Automated-run exit codes take precedence over the generic RunStatus.
+				// The coordinator returns 0 when no automated entry point is active.
+				return (RunStatus)AutomatedRunCoordinator.GetExitCode();
+			}
+			catch (Exception ex)
+			{
+				AutomatedRunCoordinator.RecordFailure(ex);
+				AutomatedRunCoordinator.FinalizeResult();
+
+				// Automated entry points must expose their documented exit code instead
+				// of falling through to
+				// ExceptionHandler.HandleFatalError, which would surface as
+				// RunStatus.Error = -1 (or -1073740791 on the Windows fatal path)
+				// and lose the distinction between preflight, setup, and runtime
+				// failures. Interactive entry points retain the historical
+				// rethrow so existing fatal-error handling is preserved.
+				if (AutomatedRunCoordinator.IsActive)
+					return (RunStatus)AutomatedRunCoordinator.GetExitCode();
+
+				throw;
+			}
+		}
+
+		// Thin pass-through to AutomatedMatchRunner.Start. The runner now
+		// catches the FileNotFoundException / JsonException on the spec path
+		// locally, writes a preflight match-result.json, and calls
+		// Game.Exit() so the loop winds down normally. Empirically (see the
+		// comment in AutomatedMatch.cs::Start) letting those exceptions
+		// propagate past this frame produces a process exit code of
+		// 0xC0000409 instead of the documented PreflightFailure = 1, so the
+		// wrapper must not re-throw on the preflight path. The .NET runtime
+		// mechanism behind 0xC0000409 is not isolated; the worker-path fix
+		// is the source of truth.
+		public static void StartAutomatedMatch(string specificationPath)
+		{
+			AutomatedRunCoordinator.StartMatch(specificationPath);
+		}
+
+		public static void StartReplayVerification(string replayPath)
+		{
+			AutomatedRunCoordinator.StartReplayVerification(replayPath);
 		}
 
 		static void Initialize(Arguments args)
@@ -386,6 +481,7 @@ namespace OpenRA
 			Log.AddChannel("geoip", "geoip.log");
 			Log.AddChannel("nat", "nat.log");
 			Log.AddChannel("client", "client.log");
+			Log.AddChannel("strategic", "strategic-decisions.log", true);
 
 			Nat.Initialize();
 
@@ -686,6 +782,73 @@ namespace OpenRA
 			InnerLogicTick(OrderManager);
 			if (worldRenderer != null && OrderManager.World != worldRenderer.World)
 				InnerLogicTick(worldRenderer.World.OrderManager);
+
+			AutomatedRunCoordinator.Tick(OrderManager?.World);
+		}
+
+		static bool TryUncappedLogicTick()
+		{
+			var orderManager = OrderManager;
+			var world = orderManager?.World;
+			if (world == null || world.Type != WorldType.Regular)
+				return false;
+
+			Sync.RunUnsynced(world, orderManager.TickImmediate);
+			if (!orderManager.TryTick())
+				return false;
+
+			Sync.RunUnsynced(world, () => world.OrderGenerator.Tick(world));
+			world.Tick();
+			PerfHistory.Tick(!world.Paused);
+
+			// TickRender is CPU-side world state maintenance, not an actual draw.
+			// The paced loop runs it after every successful world tick, and bot/world
+			// code may consume LocalRandom from this path. Keep it in the uncapped
+			// parity baseline; only the renderer submission is omitted.
+			Sync.RunUnsynced(world, () => world.TickRender(worldRenderer));
+			AutomatedRunCoordinator.Tick(world);
+			return true;
+		}
+
+		static void UncappedLogicBurst()
+		{
+			const int MaxSuccessfulTicks = 64;
+			const int SleepAfterConsecutiveStalls = 64;
+
+			PerformDelayedActions();
+			if (OrderManager.Connection is NetworkConnection nc && nc.ConnectionState != lastConnectionState)
+			{
+				lastConnectionState = nc.ConnectionState;
+				ConnectionStateChanged(OrderManager, null, nc);
+			}
+
+			var successfulTicks = 0;
+			var consecutiveStalls = 0;
+			while (state == RunStatus.Running &&
+				AutomatedRunCoordinator.UsesUncappedLogic &&
+				successfulTicks < MaxSuccessfulTicks)
+			{
+				var waitStarted = Stopwatch.GetTimestamp();
+				if (TryUncappedLogicTick())
+				{
+					successfulTicks++;
+					consecutiveStalls = 0;
+					continue;
+				}
+
+				consecutiveStalls++;
+				if (consecutiveStalls >= SleepAfterConsecutiveStalls)
+				{
+					Thread.Sleep(1);
+					AutomatedRunCoordinator.RecordOrderWait(Stopwatch.GetTimestamp() - waitStarted);
+					break;
+				}
+
+				Thread.Yield();
+				AutomatedRunCoordinator.RecordOrderWait(Stopwatch.GetTimestamp() - waitStarted);
+			}
+
+			Renderer.Window.PumpInput(new NullInputHandler());
 		}
 
 		public static void PerformDelayedActions()
@@ -815,6 +978,12 @@ namespace OpenRA
 
 			while (state == RunStatus.Running)
 			{
+				if (AutomatedRunCoordinator.UsesUncappedLogic)
+				{
+					UncappedLogicBurst();
+					continue;
+				}
+
 				var logicInterval = Ui.Timestep;
 				var logicWorld = worldRenderer?.World;
 

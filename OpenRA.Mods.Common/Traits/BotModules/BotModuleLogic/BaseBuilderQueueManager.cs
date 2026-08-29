@@ -146,7 +146,7 @@ namespace OpenRA.Mods.Common.Traits
 
 			// Add a random factor so not every AI produces at the same tick early in the game.
 			// Minimum should not be negative as delays in HackyAI could be zero.
-			var randomFactor = world.LocalRandom.Next(0, baseBuilder.Info.StructureProductionRandomBonusDelay);
+			var randomFactor = world.BotRandom.Next(0, baseBuilder.Info.StructureProductionRandomBonusDelay);
 
 			WaitTicks = active ? baseBuilder.Info.StructureProductionActiveDelay + randomFactor
 				: baseBuilder.Info.StructureProductionInactiveDelay + randomFactor;
@@ -199,7 +199,7 @@ namespace OpenRA.Mods.Common.Traits
 				else
 				{
 					// Check if Building is a defense and if we should place it towards the enemy or not.
-					if (baseBuilder.Info.DefenseTypes.Contains(actorInfo.Name) && world.LocalRandom.Next(100) < baseBuilder.Info.PlaceDefenseTowardsEnemyChance)
+					if (baseBuilder.Info.DefenseTypes.Contains(actorInfo.Name) && world.BotRandom.Next(100) < baseBuilder.Info.PlaceDefenseTowardsEnemyChance)
 						type = BuildingType.Defense;
 					else if (baseBuilder.Info.RefineryTypes.Contains(actorInfo.Name))
 						type = BuildingType.Refinery;
@@ -254,9 +254,9 @@ namespace OpenRA.Mods.Common.Traits
 						var tolerateOnCash = playerResources.GetCashAndResources() / Math.Max(baseBuilder.Info.PerExpansionTolerateOnCash, 1);
 
 						if (numRef >= baseBuilder.Info.InititalMinimumRefineryCount + baseBuilder.Info.AdditionalMinimumRefineryCount
-							&& numProd > 0 && numProd + numTech - baseBuilder.Info.ExpansionTolerate.Random(world.LocalRandom) - tolerateOnCash >= numRef)
+							&& numProd > 0 && numProd + numTech - baseBuilder.Info.ExpansionTolerate.Random(world.BotRandom) - tolerateOnCash >= numRef)
 						{
-							var undeployEvenNoBase = numProd + numTech - baseBuilder.Info.ForceExpansionTolerate.Random(world.LocalRandom) - tolerateOnCash >= numRef;
+							var undeployEvenNoBase = numProd + numTech - baseBuilder.Info.ForceExpansionTolerate.Random(world.BotRandom) - tolerateOnCash >= numRef;
 
 							foreach (var be in baseBuilder.BaseExpansionModules)
 								be.UpdateExpansionParams(bot, true, undeployEvenNoBase, null);
@@ -287,7 +287,7 @@ namespace OpenRA.Mods.Common.Traits
 			if (orderBy != null)
 				return available.MaxByOrDefault(orderBy);
 
-			return available.RandomOrDefault(world.LocalRandom);
+			return available.RandomOrDefault(world.BotRandom);
 		}
 
 		bool HasSufficientPowerForActor(ActorInfo actorInfo)
@@ -331,7 +331,7 @@ namespace OpenRA.Mods.Common.Traits
 
 			// Make sure that we can spend as fast as we are earning
 			if (baseBuilder.Info.NewProductionCashThreshold > 0 && playerResources.GetCashAndResources() > baseBuilder.Info.NewProductionCashThreshold
-				&& world.LocalRandom.Next(100) < baseBuilder.Info.NewProductionChance)
+				&& world.BotRandom.Next(100) < baseBuilder.Info.NewProductionChance)
 			{
 				var production = GetProducibleBuilding(baseBuilder.Info.ProductionTypes, buildableThings);
 				if (production != null && HasSufficientPowerForActor(production))
@@ -384,7 +384,7 @@ namespace OpenRA.Mods.Common.Traits
 			}
 
 			// Build everything else
-			foreach (var frac in baseBuilder.Info.BuildingFractions.Shuffle(world.LocalRandom))
+			foreach (var frac in baseBuilder.Info.BuildingFractions.Shuffle(world.BotRandom))
 			{
 				var name = frac.Key;
 
@@ -507,15 +507,15 @@ namespace OpenRA.Mods.Common.Traits
 							}
 						}
 						else
-							actorVariant = world.LocalRandom.Next(buildingVariantInfo.Actors.Length + 1);
+							actorVariant = world.BotRandom.Next(buildingVariantInfo.Actors.Length + 1);
 					}
 				}
 				else
 				{
-					cells = cells.Shuffle(world.LocalRandom);
+					cells = cells.Shuffle(world.BotRandom);
 
 					if (buildingVariantInfo?.Actors != null)
-						actorVariant = world.LocalRandom.Next(buildingVariantInfo.Actors.Length + 1);
+						actorVariant = world.BotRandom.Next(buildingVariantInfo.Actors.Length + 1);
 				}
 
 				if (actorVariant != 0)
@@ -580,7 +580,7 @@ namespace OpenRA.Mods.Common.Traits
 						IEnumerable<CPos> resourcesShouldCheck = null;
 
 						if (closestRefinery == null)
-							resourcesShouldCheck = nearbyResources.Shuffle(world.LocalRandom).Take(baseBuilder.Info.MaxResourceCellsToCheck);
+							resourcesShouldCheck = nearbyResources.Shuffle(world.BotRandom).Take(baseBuilder.Info.MaxResourceCellsToCheck);
 						else if (requestRef != null)
 						{
 							resourcesShouldCheck = nearbyResources.OrderBy(c => (c - baseBuilder.RequestedRefineries[requestRef].ResourceLoc).LengthSquared)

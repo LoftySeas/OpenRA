@@ -54,7 +54,7 @@ namespace OpenRA.Mods.Common.Traits
 		public CPos GetRandomBaseCenter()
 		{
 			var randomConstructionYard = constructionYards.Actors
-				.RandomOrDefault(world.LocalRandom);
+				.RandomOrDefault(world.BotRandom);
 
 			return randomConstructionYard?.Location ?? initialBaseCenter;
 		}
@@ -91,7 +91,7 @@ namespace OpenRA.Mods.Common.Traits
 		protected override void TraitEnabled(Actor self)
 		{
 			// Avoid all AIs reevaluating assignments on the same tick, randomize their initial evaluation delay.
-			scanInterval = world.LocalRandom.Next(Info.ScanForNewMcvInterval, Info.ScanForNewMcvInterval * 2);
+			scanInterval = world.BotRandom.Next(Info.ScanForNewMcvInterval, Info.ScanForNewMcvInterval * 2);
 		}
 
 		void IBotPositionsUpdated.UpdatedBaseCenter(CPos newLocation)
@@ -118,7 +118,7 @@ namespace OpenRA.Mods.Common.Traits
 				var unitBuilder = requestUnitProduction.FirstEnabledTraitOrDefault();
 				if (unitBuilder != null && Info.McvTypes.Count > 0 && ShouldBuildMCV())
 				{
-					var mcvType = Info.McvTypes.Random(world.LocalRandom);
+					var mcvType = Info.McvTypes.Random(world.BotRandom);
 					if (unitBuilder.RequestedProductionCount(bot, mcvType) == 0)
 						unitBuilder.RequestUnitProduction(bot, mcvType);
 				}
@@ -192,7 +192,7 @@ namespace OpenRA.Mods.Common.Traits
 				if (center != target)
 					cells = cells.OrderBy(c => (c - target).LengthSquared);
 				else
-					cells = cells.Shuffle(world.LocalRandom);
+					cells = cells.Shuffle(world.BotRandom);
 
 				foreach (var cell in cells)
 					if (world.CanPlaceBuilding(cell + offset, actorInfo, bi, null))

@@ -137,8 +137,8 @@ namespace OpenRA.Mods.Common.Traits
 		protected override void TraitEnabled(Actor self)
 		{
 			// Avoid all AIs scanning for idle harvesters on the same tick, randomize their initial scan delay.
-			scanForIdleHarvestersTicks = world.LocalRandom.Next(Info.ScanForIdleHarvestersInterval);
-			scanForLowEffectHarvestersTicks = world.LocalRandom.Next(Info.ScanForLowEffectHarvestersInterval);
+			scanForIdleHarvestersTicks = world.BotRandom.Next(Info.ScanForIdleHarvestersInterval);
+			scanForLowEffectHarvestersTicks = world.BotRandom.Next(Info.ScanForLowEffectHarvestersInterval);
 		}
 
 		void IBotTick.BotTick(IBot bot)
@@ -173,7 +173,7 @@ namespace OpenRA.Mods.Common.Traits
 					var harvCountTooLow = harvsNum < Info.InitialHarvesters || harvsNum < AIUtils.CountActorByCommonName(refineries);
 					if (harvCountTooLow)
 					{
-						var harvesterType = Info.HarvesterTypes.Random(world.LocalRandom);
+						var harvesterType = Info.HarvesterTypes.Random(world.BotRandom);
 						if (unitBuilder.RequestedProductionCount(bot, harvesterType) == 0)
 							unitBuilder.RequestUnitProduction(bot, harvesterType);
 					}
@@ -292,7 +292,7 @@ namespace OpenRA.Mods.Common.Traits
 						var mobile = harv.TraitOrDefault<Mobile>();
 						if (mobile != null)
 						{
-							var tcell = nearbyResources.Random(world.LocalRandom);
+							var tcell = nearbyResources.Random(world.BotRandom);
 							if (mobile.PathFinder.PathMightExistForLocomotorBlockedByImmovable(mobile.Locomotor, harv.Location, tcell))
 							{
 								bot.QueueOrder(new Order("Harvest", harv, Target.FromCell(world, tcell), false));
@@ -310,7 +310,7 @@ namespace OpenRA.Mods.Common.Traits
 						}
 						else
 						{
-							bot.QueueOrder(new Order("Harvest", harv, Target.FromCell(world, nearbyResources.Random(world.LocalRandom)), false));
+							bot.QueueOrder(new Order("Harvest", harv, Target.FromCell(world, nearbyResources.Random(world.BotRandom)), false));
 							needHarvs--;
 							harvestersCanAssign--;
 							usedHarvs.Add(harv);

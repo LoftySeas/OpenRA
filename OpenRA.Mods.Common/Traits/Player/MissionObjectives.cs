@@ -166,6 +166,9 @@ namespace OpenRA.Mods.Common.Traits
 			var gameOver = player.World.Players.All(p => p.NonCombatant || p.WinState != WinState.Undefined || !p.HasObjectives);
 			if (gameOver)
 			{
+				if (AutomatedRunCoordinator.TryScheduleNaturalEnd(player.World, Info.GameOverDelay))
+					return;
+
 				Game.RunAfterDelay(Info.GameOverDelay, () =>
 				{
 					if (Game.IsCurrentWorld(player.World))

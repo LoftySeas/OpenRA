@@ -13,6 +13,7 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
+using OpenRA.Mods.Common.AI;
 using OpenRA.Mods.Common.Traits.BotModules.Squads;
 using OpenRA.Primitives;
 using OpenRA.Traits;
@@ -93,6 +94,11 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Enemy target types to never target.")]
 		public readonly BitSet<TargetableType> IgnoredEnemyTargetTypes = default;
 
+		[Desc("How the periodic ground assault and rush creation paths are driven.",
+			"Autonomous preserves the current automatic scheduling. External disables those",
+			"periodic paths so that an external StrategicAI ATTACK request drives squad creation.")]
+		public readonly StrategyControl StrategyControl = StrategyControl.Autonomous;
+
 		public override void RulesetLoaded(Ruleset rules, ActorInfo ai)
 		{
 			base.RulesetLoaded(rules, ai);
@@ -105,13 +111,13 @@ namespace OpenRA.Mods.Common.Traits
 	}
 
 	public class SquadManagerBotModule : ConditionalTrait<SquadManagerBotModuleInfo>,
-		IBotEnabled, IBotTick, IBotRespondToAttack, IBotPositionsUpdated, IGameSaveTraitData, INotifyActorDisposing
+		IBotEnabled, IBotTick, IBotRespondToAttack, IBotPositionsUpdated, IGameSaveTraitData, INotifyActorDisposing, IBotAttackController
 	{
 		public CPos GetRandomBaseCenter()
 		{
 			var randomConstructionYard = constructionYardBuildings.Actors
 				.Where(a => a.Owner == Player)
-				.RandomOrDefault(World.LocalRandom);
+				.RandomOrDefault(World.BotRandom);
 
 			return randomConstructionYard?.Location ?? initialBaseCenter;
 		}
@@ -193,12 +199,12 @@ namespace OpenRA.Mods.Common.Traits
 		{
 			// Avoid all AIs trying to rush in the same tick, randomize their initial rush a little.
 			var smallFractionOfRushInterval = Info.RushInterval / 20;
-			rushTicks = World.LocalRandom.Next(Info.RushInterval - smallFractionOfRushInterval, Info.RushInterval + smallFractionOfRushInterval);
+			rushTicks = World.BotRandom.Next(Info.RushInterval - smallFractionOfRushInterval, Info.RushInterval + smallFractionOfRushInterval);
 
 			// Avoid all AIs reevaluating assignments on the same tick, randomize their initial evaluation delay.
-			assignRolesTicks = World.LocalRandom.Next(0, Info.AssignRolesInterval);
-			attackForceTicks = World.LocalRandom.Next(0, Info.AttackForceInterval);
-			minAttackForceDelayTicks = World.LocalRandom.Next(0, Info.MinimumAttackForceDelay);
+			assignRolesTicks = World.BotRandom.Next(0, Info.AssignRolesInterval);
+			attackForceTicks = World.BotRandom.Next(0, Info.AttackForceInterval);
+			minAttackForceDelayTicks = World.BotRandom.Next(0, Info.MinimumAttackForceDelay);
 		}
 
 		void IBotEnabled.BotEnabled(IBot bot)
@@ -344,10 +350,23 @@ namespace OpenRA.Mods.Common.Traits
 			foreach (var n in notifyIdleBaseUnits)
 				n.UpdatedIdleBaseUnits(unitsHangingAroundTheBase);
 
-			if (--rushTicks <= 0)
+			// External control suppresses only the periodic ground
+			// assault and rush creation paths. Role assignment,
+			// protection, air, naval, target selection, squad
+			// updates, and unit execution continue to run.
+			if (Info.StrategyControl == StrategyControl.Autonomous)
 			{
-				rushTicks = Info.RushInterval;
-				TryToRushAttack(bot);
+				if (--rushTicks <= 0)
+				{
+					rushTicks = Info.RushInterval;
+					TryToRushAttack(bot);
+				}
+
+				if (--minAttackForceDelayTicks <= 0)
+				{
+					minAttackForceDelayTicks = Info.MinimumAttackForceDelay;
+					CreateAttackForce(bot);
+				}
 			}
 
 			if (--attackForceTicks <= 0)
@@ -370,12 +389,6 @@ namespace OpenRA.Mods.Common.Traits
 			{
 				assignRolesTicks = Info.AssignRolesInterval;
 				FindNewUnits(bot);
-			}
-
-			if (--minAttackForceDelayTicks <= 0)
-			{
-				minAttackForceDelayTicks = Info.MinimumAttackForceDelay;
-				CreateAttackForce(bot);
 			}
 
 			if (respondToAttackCooldown-- == MaxRespondToAttackCooldown)
@@ -420,18 +433,48 @@ namespace OpenRA.Mods.Common.Traits
 		{
 			// Create an attack force when we have enough units around our base.
 			// (don't bother leaving any behind for defense)
-			var randomizedSquadSize = Info.SquadSize + World.LocalRandom.Next(Info.SquadSizeRandomBonus);
+			TryCreateAssaultSquad(bot, RandomizedSquadSize);
+		}
 
-			if (unitsHangingAroundTheBase.Count >= randomizedSquadSize)
-			{
-				var attackForce = RegisterNewSquad(bot, SquadType.Assault);
+		internal int RandomizedSquadSize => Info.SquadSize + World.BotRandom.Next(Info.SquadSizeRandomBonus);
 
-				attackForce.Units.UnionWith(unitsHangingAroundTheBase);
+		internal int EffectiveStrategicSquadSize =>
+			ResolveSquadSize(Info.StrategyControl, Info.SquadSize, AutomatedMatchRunner.StrategicSquadSizeOverride);
 
-				unitsHangingAroundTheBase.Clear();
-				foreach (var n in notifyIdleBaseUnits)
-					n.UpdatedIdleBaseUnits(unitsHangingAroundTheBase);
-			}
+		internal static int ResolveSquadSize(StrategyControl strategyControl, int configuredSquadSize, int? candidateSquadSize) =>
+			strategyControl == StrategyControl.External ? candidateSquadSize ?? configuredSquadSize : configuredSquadSize;
+
+		// Shared ground assault creation path. Returns true if a
+		// new assault squad was registered; false if the available
+		// pool was below the supplied threshold. The caller is
+		// responsible for interpreting the boolean against its own
+		// contract (autonomous scheduling or an external request).
+		internal bool TryCreateAssaultSquad(IBot bot, int threshold)
+		{
+			// The eligible-actor set is the single source of truth
+			// shared with GetAttackReadiness. The readiness
+			// snapshot and the create path both consume the
+			// identical enumeration, so the observation count and
+			// the registered squad's Units cannot drift apart.
+			var eligible = EligibleUnits(unitsHangingAroundTheBase, unitCannotBeOrdered);
+			if (eligible.Count < threshold)
+				return false;
+
+			var attackForce = RegisterNewSquad(bot, SquadType.Assault);
+			foreach (var a in eligible)
+				attackForce.Units.Add(a);
+
+			// Remove only the consumed (eligible) units from the
+			// hang-around pool so the next readiness snapshot
+			// still sees the unorderable residue. The wrapped
+			// lambda adapts List.RemoveAll's Predicate<Actor>
+			// signature to the same source-of-truth filter the
+			// create path used above.
+			var eligibleSet = new HashSet<Actor>(eligible);
+			unitsHangingAroundTheBase.RemoveAll(eligibleSet.Contains);
+			foreach (var n in notifyIdleBaseUnits)
+				n.UpdatedIdleBaseUnits(unitsHangingAroundTheBase);
+			return true;
 		}
 
 		void TryToRushAttack(IBot bot)
@@ -447,7 +490,7 @@ namespace OpenRA.Mods.Common.Traits
 			if (groundTroopNum < Info.SquadSize)
 				return;
 
-			var randomAttackableUnit = unitsHangingAroundTheBase.Where(a => a.Info.HasTraitInfo<AttackBaseInfo>()).RandomOrDefault(World.LocalRandom);
+			var randomAttackableUnit = unitsHangingAroundTheBase.Where(a => a.Info.HasTraitInfo<AttackBaseInfo>()).RandomOrDefault(World.BotRandom);
 
 			if (randomAttackableUnit == null)
 				return;
@@ -474,7 +517,7 @@ namespace OpenRA.Mods.Common.Traits
 
 				if (AttackOrFleeFuzzy.Rush.CanAttack(unitsHangingAroundTheBase, enemies.ConvertAll(x => x.Actor)))
 				{
-					var target = enemies.Count > 0 ? enemies.Random(World.LocalRandom) : enemyBaseBuilder;
+					var target = enemies.Count > 0 ? enemies.Random(World.BotRandom) : enemyBaseBuilder;
 					foreach (var s in Squads)
 					{
 						if (s.IsValid)
@@ -556,6 +599,101 @@ namespace OpenRA.Mods.Common.Traits
 				n.UpdatedDefenseCenter(e.Attacker.Location);
 
 			protectFrom = e.Attacker;
+		}
+
+		BotAttackReadiness IBotAttackController.GetAttackReadiness()
+		{
+			// CountEligibleUnits is the single source of truth for
+			// the ground attack eligibility filter. TryCreateAssaultSquad
+			// reuses the same helper so observation and execution
+			// agree on the actor set.
+			var available = CountEligibleUnits();
+
+			var active = 0;
+			foreach (var s in Squads)
+				if (s.IsValid && s.Type == SquadType.Assault)
+					active++;
+
+			/*
+			 * BotAttackReadiness carries only the two counts the M1
+			 * observation needs. The formation-size threshold lives
+			 * on Info.SquadSize and is the single configured source
+			 * of truth for both the rule policy and the create
+			 * path; the commander cross-checks the two at ruleset
+			 * load.
+			 */
+			return new BotAttackReadiness(available, active);
+		}
+
+		// Single source of truth for the eligibility filter used by
+		// both the readiness snapshot and the assault-squad creation
+		// path. Centralizing the predicate here guarantees the two
+		// paths cannot drift apart. The helper is generic so the
+		// behaviour-level test can drive it with simple types
+		// (int, string) without standing up a fully-bootstrapped
+		// World; the production code calls it with Actor. The same
+		// method serves both call sites, so a test that exercises
+		// the helper directly proves the production filter behaves
+		// the same way the readiness and create paths see it.
+		internal int CountEligibleUnits()
+		{
+			return EligibleUnits(unitsHangingAroundTheBase, unitCannotBeOrdered).Count;
+		}
+
+		internal static List<T> EligibleUnits<T>(IEnumerable<T> pool, Predicate<T> cannotBeOrdered)
+		{
+			return pool.Where(t => !cannotBeOrdered(t)).ToList();
+		}
+
+		StrategicActionResult IBotAttackController.RequestAttack(IBot bot, in StrategicAction action)
+		{
+			ArgumentNullException.ThrowIfNull(bot);
+
+			// The executor has already validated schema version and
+			// world tick. The adapter only handles the canonical M1
+			// attack action; any other type is rejected here as a
+			// safety net.
+			if (action.Type != StrategicActionType.Attack)
+				return new StrategicActionResult(
+					action.SchemaVersion, action.WorldTick,
+					action.Type,
+					StrategicActionStatus.Rejected,
+					StrategicActionReason.InvalidAction);
+
+			// External control is the only mode that allows the
+			// request through. In Autonomous mode the periodic
+			// scheduler owns the assault creation path and the
+			// request is rejected with AttackAlreadyActive so the
+			// caller does not silently double-create a squad.
+			if (Info.StrategyControl != StrategyControl.External)
+				return new StrategicActionResult(
+					action.SchemaVersion, action.WorldTick,
+					StrategicActionType.Attack,
+					StrategicActionStatus.Rejected,
+					StrategicActionReason.AttackAlreadyActive);
+
+			foreach (var s in Squads)
+			{
+				if (s.IsValid && s.Type == SquadType.Assault)
+					return new StrategicActionResult(
+						action.SchemaVersion, action.WorldTick,
+						StrategicActionType.Attack,
+						StrategicActionStatus.Rejected,
+						StrategicActionReason.AttackAlreadyActive);
+			}
+
+			if (TryCreateAssaultSquad(bot, EffectiveStrategicSquadSize))
+				return new StrategicActionResult(
+					action.SchemaVersion, action.WorldTick,
+					StrategicActionType.Attack,
+					StrategicActionStatus.Executed,
+					StrategicActionReason.None);
+
+			return new StrategicActionResult(
+				action.SchemaVersion, action.WorldTick,
+				StrategicActionType.Attack,
+				StrategicActionStatus.Rejected,
+				StrategicActionReason.InsufficientUnits);
 		}
 
 		List<MiniYamlNode> IGameSaveTraitData.IssueTraitData(Actor self)

@@ -171,7 +171,7 @@ namespace OpenRA.Mods.Common.Traits
 		public CPos GetRandomBaseCenter()
 		{
 			var randomConstructionYard = ConstructionYardBuildings.Actors.Where(a => !a.IsDead)
-				.RandomOrDefault(world.LocalRandom);
+				.RandomOrDefault(world.BotRandom);
 
 			return randomConstructionYard?.Location ?? initialBaseCenter;
 		}
@@ -249,9 +249,9 @@ namespace OpenRA.Mods.Common.Traits
 		protected override void TraitEnabled(Actor self)
 		{
 			// Avoid all AIs reevaluating assignments on the same tick, randomize their initial evaluation delay.
-			assignRallyPointsTicks = world.LocalRandom.Next(0, Info.AssignRallyPointsInterval);
-			checkBestResourceLocationTicks = world.LocalRandom.Next(0, Info.CheckBestResourceLocationInterval);
-			sellRefineryTick = Info.SellRefineryInterval < 0 ? 0 : world.LocalRandom.Next(0, Info.SellRefineryInterval);
+			assignRallyPointsTicks = world.BotRandom.Next(0, Info.AssignRallyPointsInterval);
+			checkBestResourceLocationTicks = world.BotRandom.Next(0, Info.CheckBestResourceLocationInterval);
+			sellRefineryTick = Info.SellRefineryInterval < 0 ? 0 : world.BotRandom.Next(0, Info.SellRefineryInterval);
 		}
 
 		void IBotPositionsUpdated.UpdatedBaseCenter(CPos newLocation)
@@ -436,7 +436,7 @@ namespace OpenRA.Mods.Common.Traits
 				return producer.Location;
 			}
 
-			return possibleRallyPoints.Random(world.LocalRandom);
+			return possibleRallyPoints.Random(world.BotRandom);
 		}
 
 		Locomotor[] LocomotorsForProducibles(Actor producer)

@@ -95,14 +95,14 @@ namespace OpenRA.Mods.Common.Traits.BotModules.Squads
 		{
 			map = owner.World.Map;
 			dangerRadius = owner.SquadManager.Info.DangerScanRadius;
-			var dangerIndiceSideLength = dangerRadius * 141 / 100; // ¡Ö DangerScanRadius * sqrt(2)
+			var dangerIndiceSideLength = dangerRadius * 141 / 100; // ï¿½ï¿½ DangerScanRadius * sqrt(2)
 
 			columnCount = (map.Bounds.Width + dangerIndiceSideLength - 1) / dangerIndiceSideLength;
 			rowCount = (map.Bounds.Height + dangerIndiceSideLength - 1) / dangerIndiceSideLength;
 			var xoffset = map.Bounds.X;
 			var yoffset = map.Bounds.Y;
 
-			airStrikeCheckIndices ??= Exts.MakeArray(columnCount * rowCount, i => i).Shuffle(owner.World.LocalRandom).ToArray();
+			airStrikeCheckIndices ??= Exts.MakeArray(columnCount * rowCount, i => i).Shuffle(owner.World.BotRandom).ToArray();
 		}
 
 		Actor FindDefenselessTarget(Squad owner)
@@ -128,7 +128,7 @@ namespace OpenRA.Mods.Common.Traits.BotModules.Squads
 					if (detectedEnemyTarget == null)
 						continue;
 
-					checkedIndex = owner.World.LocalRandom.Next(airStrikeCheckIndices.Length);
+					checkedIndex = owner.World.BotRandom.Next(airStrikeCheckIndices.Length);
 					return detectedEnemyTarget;
 				}
 			}

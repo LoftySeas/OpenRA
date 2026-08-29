@@ -1,4 +1,4 @@
-﻿#region Copyright & License Information
+#region Copyright & License Information
 /*
  * Copyright (c) The OpenRA Developers and Contributors
  * This file is part of OpenRA, which is free software. It is made
@@ -101,7 +101,7 @@ namespace OpenRA.Mods.Common.Traits
 			if (firstTick)
 			{
 				resourceLayer = world.WorldActor.TraitOrDefault<IResourceLayer>();
-				updateResourceMapInterval = world.LocalRandom.Next(Info.UpdateResourceMapInverval, Info.UpdateResourceMapInverval << 1);
+				updateResourceMapInterval = world.BotRandom.Next(Info.UpdateResourceMapInverval, Info.UpdateResourceMapInverval << 1);
 
 				if (resourceMapIndices == null && resourceLayer != null)
 				{

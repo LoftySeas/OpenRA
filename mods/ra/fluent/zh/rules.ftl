@@ -949,6 +949,9 @@ bot-turtle-ai =
 bot-naval-ai =
     .name = 海军AI
 
+bot-strategic-ai =
+    .name = 战略AI（实验）
+
 ## map-generators.yaml
 label-random-map = 随机地图
 label-clear-map-generator-option-tile = 瓦片

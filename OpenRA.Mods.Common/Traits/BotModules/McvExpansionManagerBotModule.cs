@@ -1,4 +1,4 @@
-﻿#region Copyright & License Information
+#region Copyright & License Information
 /*
  * Copyright (c) The OpenRA Developers and Contributors
  * This file is part of OpenRA, which is free software. It is made
@@ -164,9 +164,9 @@ namespace OpenRA.Mods.Common.Traits
 		protected override void TraitEnabled(Actor self)
 		{
 			// Avoid all AIs reevaluating assignments on the same tick, randomize their initial evaluation delay.
-			scanInterval = world.LocalRandom.Next(Info.ScanForNewMcvInterval, Info.ScanForNewMcvInterval << 1);
-			buildMCVInterval = world.LocalRandom.Next(Info.BuildMcvInterval, Info.BuildMcvInterval << 1);
-			moveConyardInterval = world.LocalRandom.Next(Info.MoveConyardTick, Info.MoveConyardTick << 1);
+			scanInterval = world.BotRandom.Next(Info.ScanForNewMcvInterval, Info.ScanForNewMcvInterval << 1);
+			buildMCVInterval = world.BotRandom.Next(Info.BuildMcvInterval, Info.BuildMcvInterval << 1);
+			moveConyardInterval = world.BotRandom.Next(Info.MoveConyardTick, Info.MoveConyardTick << 1);
 		}
 
 		void SwitchExpansionMode(BotMcvExpansionMode nextMode)
@@ -438,7 +438,7 @@ namespace OpenRA.Mods.Common.Traits
 						attraction += ((indiceSideLengthSquare >> 1) - Math.Abs(resourceCellsCount - (indiceSideLengthSquare >> 1))) >> 2;
 						attraction += 8 * resourceCreatorLocs.Length;
 
-						var resCenter = resourceCreatorLocs.Length == 0 || world.LocalRandom.Next(2) > 0 ? resourceCellsCenter : resourceCreatorLocs.Random(world.LocalRandom);
+						var resCenter = resourceCreatorLocs.Length == 0 || world.BotRandom.Next(2) > 0 ? resourceCellsCenter : resourceCreatorLocs.Random(world.BotRandom);
 
 						attraction -= CalculateThreats(indiceSideLengthSquare, i);
 
@@ -596,7 +596,7 @@ namespace OpenRA.Mods.Common.Traits
 			var unitBuilder = requestUnitProduction.FirstEnabledTraitOrDefault();
 			if (unitBuilder == null)
 				return;
-			var mcvType = Info.McvTypes.Random(world.LocalRandom);
+			var mcvType = Info.McvTypes.Random(world.BotRandom);
 
 			// Make sure we only request one MCV at a time.
 			if (unitBuilder.RequestedProductionCount(bot, mcvType) <= 0)
@@ -628,7 +628,7 @@ namespace OpenRA.Mods.Common.Traits
 			var conyards = constructionYards.Actors
 				.Where(a => !a.IsDead);
 
-			var moveOldConyardFirst = Info.MoveOldConyardFirst ?? world.LocalRandom.Next(2) > 0;
+			var moveOldConyardFirst = Info.MoveOldConyardFirst ?? world.BotRandom.Next(2) > 0;
 
 			if (moveOldConyardFirst)
 				conyards = conyards.OrderBy(a => a.ActorID);
@@ -689,7 +689,7 @@ namespace OpenRA.Mods.Common.Traits
 			// When we don't have a construction yard, we notify the new location to other traits for defence,
 			// If not, we only notify sometimes, because we are not sure if mcv can successfully deploy at the desired location.
 			// TODO: This could be addressed via INotifyTransform.
-			if (constructionYards.Actors.All(a => a.IsDead) || world.LocalRandom.Next(2) > 0)
+			if (constructionYards.Actors.All(a => a.IsDead) || world.BotRandom.Next(2) > 0)
 			{
 				foreach (var n in notifyPositionsUpdated)
 				{
@@ -738,7 +738,7 @@ namespace OpenRA.Mods.Common.Traits
 					cells = cells.OrderBy(c => deta * (c - target).LengthSquared + theta * (c - source).LengthSquared);
 				}
 				else
-					cells = cells.Shuffle(world.LocalRandom);
+					cells = cells.Shuffle(world.BotRandom);
 
 				CPos? bestcell = null;
 				foreach (var cell in cells)

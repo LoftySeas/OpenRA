@@ -11,6 +11,7 @@
 
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using OpenRA.Server;
 using OpenRA.Traits;
@@ -232,6 +233,35 @@ namespace OpenRA.Network
 						orderManager.World.PredictedPaused = pause;
 					}
 
+					break;
+				}
+
+				case "ScheduleMatchTimeout":
+				{
+					// Only accept orders dispatched by the server (clientId == 0). Replay playback
+					// preserves From == 0 for server-dispatched orders (ReplayConnection.cs:121-122),
+					// so a tampered replay that rewrites From to a non-zero clientId is still rejected.
+					if (clientId != 0)
+						break;
+
+					if (!int.TryParse(order.TargetString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target))
+						break;
+
+					// TryScheduleMatchTimeout enforces target > 0 and the once-only invariant;
+					// a duplicate or non-positive request is silently dropped.
+					orderManager.TryScheduleMatchTimeout(target);
+					break;
+				}
+
+				case "ScheduleMatchEnd":
+				{
+					if (clientId != 0)
+						break;
+
+					if (!int.TryParse(order.TargetString, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target))
+						break;
+
+					orderManager.TryScheduleMatchEnd(target);
 					break;
 				}
 

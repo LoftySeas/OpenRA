@@ -13,6 +13,7 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using OpenRA.Mods.Common.Traits;
@@ -183,7 +184,9 @@ namespace OpenRA.Mods.Common.Server
 				{ "spawn", Spawn },
 				{ "clear_spawn", ClearPlayerSpawn },
 				{ "color", PlayerColor },
-				{ "sync_lobby", SyncLobby }
+				{ "sync_lobby", SyncLobby },
+				{ "schedule_match_timeout", ScheduleMatchTimeout },
+				{ "schedule_match_end", ScheduleMatchEnd }
 			};
 
 		static bool ValidateSlotCommand(S server, Connection conn, Session.Client client, string arg, bool requiresHost)
@@ -214,12 +217,18 @@ namespace OpenRA.Mods.Common.Server
 				if (command.StartsWith("kick ", StringComparison.Ordinal) || command.StartsWith("vote_kick ", StringComparison.Ordinal))
 					return true;
 
-				if (server.State == ServerState.GameStarted)
+				if (server.State == ServerState.GameStarted &&
+					!command.StartsWith("schedule_match_end ", StringComparison.Ordinal))
 				{
 					server.SendFluentMessageTo(conn, StateUnchangedGameStarted, ["command", command]);
 					return false;
 				}
-				else if (client.State == Session.ClientState.Ready && !(command.StartsWith("state", StringComparison.Ordinal) || command == "startgame"))
+				else if (client.State == Session.ClientState.Ready
+					&& !(command.StartsWith("state", StringComparison.Ordinal)
+						|| command == "startgame"
+						|| command == "schedule_match_timeout"
+						|| command.StartsWith("schedule_match_timeout ", StringComparison.Ordinal)
+						|| command.StartsWith("schedule_match_end ", StringComparison.Ordinal)))
 				{
 					server.SendFluentMessageTo(conn, StateUnchangedReady);
 					return false;
@@ -345,6 +354,53 @@ namespace OpenRA.Mods.Common.Server
 				}
 
 				server.StartGame();
+
+				return true;
+			}
+		}
+
+		// Host-only setup command issued by AutomatedMatchRunner.CreateSetupOrders before "startgame",
+		// recorded into the replay as a server-dispatched "ScheduleMatchTimeout" frame-0 Order so
+		// replay playback can deterministically end the world at the same tick. Only the host (admin)
+		// may schedule a timeout; a non-admin caller is rejected here. Server.TryScheduleMatchTimeout
+		// enforces the once-only invariant and rejects non-positive targets.
+		static bool ScheduleMatchTimeout(S server, Connection conn, Session.Client client, string s)
+		{
+			lock (server.LobbyInfoLock)
+			{
+				if (!client.IsAdmin)
+				{
+					server.SendFluentMessageTo(conn, OnlyHostStartGame);
+					return true;
+				}
+
+				if (!int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target)
+					|| !server.TryScheduleMatchTimeout(target))
+					return true;
+
+				server.DispatchServerOrdersToClients(
+					Order.FromTargetString("ScheduleMatchTimeout", target.ToStringInvariant(), true));
+
+				return true;
+			}
+		}
+
+		static bool ScheduleMatchEnd(S server, Connection conn, Session.Client client, string s)
+		{
+			lock (server.LobbyInfoLock)
+			{
+				if (!client.IsAdmin)
+				{
+					server.SendFluentMessageTo(conn, OnlyHostStartGame);
+					return true;
+				}
+
+				if (!int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var target)
+					|| !server.TryScheduleMatchEnd(target))
+					return true;
+
+				server.DispatchServerOrdersToClients(
+					Order.FromTargetString("ScheduleMatchEnd", target.ToStringInvariant(), true));
 
 				return true;
 			}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "matchTimeoutSeconds": 1800,
+  "verificationTimeoutSeconds": 300,
+  "options": {
+    "startingcash": "20000",
+    "gamespeed": "fastest",
+    "shortgame": "True"
+  },
+  "scenarios": [
+    { "id": "ore-normal-1101", "mapUid": "b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93", "randomSeed": 1101, "opponentBotType": "normal", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "ore-rush-1102", "mapUid": "b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93", "randomSeed": 1102, "opponentBotType": "rush", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "siberian-normal-1201", "mapUid": "fb2dc049f13eaaea95fbcd2abef7211b3f0e702a", "randomSeed": 1201, "opponentBotType": "normal", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "siberian-rush-1202", "mapUid": "fb2dc049f13eaaea95fbcd2abef7211b3f0e702a", "randomSeed": 1202, "opponentBotType": "rush", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "veil-normal-1301", "mapUid": "1bc3cabfd22bb3f827fbb8895f984a013e4e98d0", "randomSeed": 1301, "opponentBotType": "normal", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "veil-rush-1302", "mapUid": "1bc3cabfd22bb3f827fbb8895f984a013e4e98d0", "randomSeed": 1302, "opponentBotType": "rush", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "singles-normal-1401", "mapUid": "a4c43b57c10d0e6db1a7c8f93c7fa362892c4986", "randomSeed": 1401, "opponentBotType": "normal", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "agenda-rush-1501", "mapUid": "f3313186a1cab4f936e8ae0aa45954d99e10fafe", "randomSeed": 1501, "opponentBotType": "rush", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "warwind-normal-1601", "mapUid": "7be237e987e32e53b3adf7a99a02ca00b819e8aa", "randomSeed": 1601, "opponentBotType": "normal", "maxWorldTicks": 600, "expectedMatchStatus": "TIMED_OUT" },
+    { "id": "singles-natural-rush-1701", "mapUid": "a4c43b57c10d0e6db1a7c8f93c7fa362892c4986", "randomSeed": 1701, "opponentBotType": "rush", "maxWorldTicks": 30000, "strategicHandicap": 95, "expectedMatchStatus": "COMPLETED" }
+  ]
+}

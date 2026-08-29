@@ -90,20 +90,27 @@ namespace OpenRA.Mods.Common.Traits
 
 	public class Tooltip : ConditionalTrait<TooltipInfo>, ITooltip
 	{
-		readonly Actor self;
-		readonly TooltipInfo info;
+		// Get-only auto-properties satisfy IDE0032 (prefer auto-implemented properties) without
+		// changing the read-only-after-construction semantics that the rest of the trait code
+		// relies on (assignments only happen inside the constructor). `Info` is already used
+		// by the ConditionalTrait base class, so the TooltipInfo reference is exposed as
+		// `InfoField` here.
+		public Actor Self { get; }
+		public TooltipInfo InfoField { get; }
 
-		public ITooltipInfo TooltipInfo => info;
+		public ITooltipInfo TooltipInfo => InfoField;
 
-		public Player Owner => self.EffectiveOwner != null ? self.EffectiveOwner.Owner : self.Owner;
+		public Player Owner => Self.EffectiveOwner != null ? Self.EffectiveOwner.Owner : Self.Owner;
 
-		public Actor Actor => self;
+		// Always return the real backing actor so callers (e.g. WorldTooltipLogic) can do a
+		// fog-of-war visibility check on the actual unit, not on the disguise target.
+		public Actor Actor => Self;
 
 		public Tooltip(Actor self, TooltipInfo info)
 			: base(info)
 		{
-			this.self = self;
-			this.info = info;
+			Self = self;
+			InfoField = info;
 		}
 	}
 }

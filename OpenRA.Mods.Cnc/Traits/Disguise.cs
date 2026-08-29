@@ -28,32 +28,35 @@ namespace OpenRA.Mods.Cnc.Traits
 
 	sealed class DisguiseTooltip : ConditionalTrait<DisguiseTooltipInfo>, ITooltip
 	{
-		readonly Actor self;
-		readonly Disguise disguise;
+		// Get-only auto-properties satisfy IDE0032 (prefer auto-implemented properties) without
+		// changing the read-only-after-construction semantics that the rest of the trait code
+		// relies on (assignments only happen inside the constructor).
+		public Actor Self { get; }
+		public Disguise Disguise { get; }
 
 		public DisguiseTooltip(Actor self, DisguiseTooltipInfo info)
 			: base(info)
 		{
-			this.self = self;
-			disguise = self.Trait<Disguise>();
+			Self = self;
+			Disguise = self.Trait<Disguise>();
 		}
 
-		public ITooltipInfo TooltipInfo => disguise.Disguised ? disguise.AsTooltipInfo : Info;
+		public ITooltipInfo TooltipInfo => Disguise.Disguised ? Disguise.AsTooltipInfo : Info;
 
 		// Always return the real backing actor so callers (e.g. WorldTooltipLogic) can do a
 		// fog-of-war visibility check on the actual unit, not on the disguise target. Showing
 		// the disguised-as tooltip name when the real unit is hidden under fog would leak
 		// the disguise's identity to enemy players.
-		public Actor Actor => self;
+		public Actor Actor => Self;
 
 		public Player Owner
 		{
 			get
 			{
-				if (!disguise.Disguised || self.Owner.IsAlliedWith(self.World.RenderPlayer))
-					return self.Owner;
+				if (!Disguise.Disguised || Self.Owner.IsAlliedWith(Self.World.RenderPlayer))
+					return Self.Owner;
 
-				return disguise.AsPlayer;
+				return Disguise.AsPlayer;
 			}
 		}
 	}

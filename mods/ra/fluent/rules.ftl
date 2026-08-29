@@ -949,6 +949,9 @@ bot-turtle-ai =
 bot-naval-ai =
     .name = Naval AI
 
+bot-strategic-ai =
+    .name = Strategic AI (Experimental)
+
 ## map-generators.yaml
 label-random-map = Random Map
 label-clear-map-generator-option-tile = Tile

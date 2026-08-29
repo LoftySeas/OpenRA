@@ -48,7 +48,7 @@ namespace OpenRA.Mods.Common.Traits.BotModules.Squads
 			Bot = bot;
 			SquadManager = squadManager;
 			World = bot.Player.PlayerActor.World;
-			Random = World.LocalRandom;
+			Random = World.BotRandom;
 			Type = type;
 			SetActorToTarget(target);
 			FuzzyStateMachine = new StateMachine();

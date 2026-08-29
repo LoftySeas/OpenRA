@@ -11,18 +11,24 @@ Player:
 	ModularBot@NavalAI:
 		Name: bot-naval-ai.name
 		Type: naval
+	ModularBot@StrategicAI:
+		Name: bot-strategic-ai.name
+		Type: strategic
 	GrantConditionOnBotOwner@rush:
 		Condition: enable-rush-ai
 		Bots: rush
 	GrantConditionOnBotOwner@normal:
 		Condition: enable-normal-ai
-		Bots: normal
+		Bots: normal, strategic
 	GrantConditionOnBotOwner@turtle:
 		Condition: enable-turtle-ai
 		Bots: turtle
 	GrantConditionOnBotOwner@naval:
 		Condition: enable-naval-ai
 		Bots: naval
+	GrantConditionOnBotOwner@strategic:
+		Condition: enable-strategic-ai
+		Bots: strategic
 	ResourceMapBotModule:
 		RequiresCondition: enable-rush-ai || enable-normal-ai || enable-turtle-ai
 		ResourceCreatorTypes: mine, gmine
@@ -396,7 +402,7 @@ Player:
 			jeep: 4
 			ftrk: 4
 	SquadManagerBotModule@normal:
-		RequiresCondition: enable-normal-ai
+		RequiresCondition: enable-normal-ai && !enable-strategic-ai
 		SquadSize: 40
 		NavalUnitsTypes: ss, msub, dd, ca, lst, pt
 		ExcludeFromSquadsTypes: harv, mcv, dog, badr.bomber, u2
@@ -408,6 +414,42 @@ Player:
 		IgnoredEnemyTargetTypes: AirborneActor
 		ProtectUnitScanRadius: 15
 		ProtectionScanRadius: 12
+	# StrategicAI reuses the Normal economy and production
+	# modules (via enable-normal-ai) but routes squad creation
+	# through a dedicated External SquadManager. The
+	# external control suppresses only the periodic ground
+	# assault and rush creation paths; protection, air, naval,
+	# role assignment, and squad execution remain active.
+	SquadManagerBotModule@strategic:
+		RequiresCondition: enable-strategic-ai
+		SquadSize: 40
+		NavalUnitsTypes: ss, msub, dd, ca, lst, pt
+		ExcludeFromSquadsTypes: harv, mcv, dog, badr.bomber, u2
+		ConstructionYardTypes: fact
+		NavalProductionTypes: spen, syrd
+		AirUnitsTypes: mig, yak, heli, hind, mh60
+		AircraftTargetType: AirborneActor
+		ProtectionTypes: harv, mcv, mslo, gap, spen, syrd, iron, pdox, tsla, agun, dome, pbox, hbox, gun, ftur, sam, atek, weap, fact, proc, silo, hpad, afld, afld.ukraine, powr, apwr, stek, barr, kenn, tent, fix, fpwr, tenf, syrf, spef, weaf, domf, fixf, fapw, atef, pdof, mslf, facf
+		IgnoredEnemyTargetTypes: AirborneActor
+		ProtectUnitScanRadius: 15
+		ProtectionScanRadius: 12
+		StrategyControl: External
+	# Strategic AI M1 reference coordinator. Reads state from the
+	# owning player, decides NO_OP or ATTACK, and dispatches
+	# ATTACK to the dedicated External SquadManager above. Only
+	# enabled for the strategic bot type.
+	# SquadSize is cross-checked against every
+	# SquadManagerBotModuleInfo in the rules at ruleset load;
+	# any mismatch is a fatal YamlException so the rule policy
+	# and the controller cannot drift.
+	StrategicStateProvider:
+		RequiresCondition: enable-strategic-ai
+	StrategicActionExecutor:
+		RequiresCondition: enable-strategic-ai
+	StrategicCommanderBotModule:
+		RequiresCondition: enable-strategic-ai
+		DecisionIntervalTicks: 75
+		SquadSize: 40
 	UnitBuilderBotModule@normal:
 		RequiresCondition: enable-normal-ai
 		UnitsToBuild:

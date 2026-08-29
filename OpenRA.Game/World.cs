@@ -50,12 +50,18 @@ namespace OpenRA
 
 		public readonly MersenneTwister SharedRandom;
 		public readonly MersenneTwister LocalRandom;
+		public readonly MersenneTwister BotRandom;
 		public LongBitSet<PlayerBitMask> AllPlayersMask = default;
 		public readonly LongBitSet<PlayerBitMask> NoPlayersMask = default;
 
 		public Player[] Players = [];
 
 		public event Action<Player> RenderPlayerChanged;
+
+		internal static MersenneTwister CreateBotRandom(MersenneTwister localRandom, int? deterministicSeed)
+		{
+			return deterministicSeed.HasValue ? new MersenneTwister(deterministicSeed.Value) : localRandom;
+		}
 
 		public void SetPlayers(IEnumerable<Player> players, Player localPlayer)
 		{
@@ -198,6 +204,8 @@ namespace OpenRA
 
 			SharedRandom = new MersenneTwister(orderManager.LobbyInfo.GlobalSettings.RandomSeed);
 			LocalRandom = new MersenneTwister();
+			var deterministicBotRandomSeed = AutomatedRunCoordinator.DeterministicBotRandomSeed;
+			BotRandom = CreateBotRandom(LocalRandom, deterministicBotRandomSeed);
 
 			var worldActorType = type == WorldType.Editor ? SystemActors.EditorWorld : SystemActors.World;
 			WorldActor = CreateActor(worldActorType.ToString(), []);
