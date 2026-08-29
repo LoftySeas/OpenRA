@@ -795,7 +795,13 @@ namespace OpenRA
 
 			Sync.RunUnsynced(world, orderManager.TickImmediate);
 			if (!orderManager.TryTick())
+			{
+				// An automated replay verifier must still inspect terminal conditions
+				// when a truncated order stream can no longer advance the world.
+				// This does not advance WorldTick and is also safe for match runners.
+				AutomatedRunCoordinator.Tick(world);
 				return false;
+			}
 
 			Sync.RunUnsynced(world, () => world.OrderGenerator.Tick(world));
 			world.Tick();
