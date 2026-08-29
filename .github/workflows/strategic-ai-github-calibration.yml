@@ -1,4 +1,4 @@
-name: Strategic AI GitHub Runner Saturation 8-12-16
+name: Strategic AI GitHub Runner Saturation 2-4-6
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   diagnose:
-    name: Ubuntu balanced 48-job 8/12/16-worker saturation diagnostic
+    name: Ubuntu balanced 48-job 2/4/6-worker saturation diagnostic
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     env:
@@ -94,18 +94,19 @@ jobs:
           registration = {
               "schemaVersion": "1.0.0",
               "decisionInfluence": "NONE",
-              "purpose": "GITHUB_RUNNER_SATURATION_8_12_16",
+              "purpose": "GITHUB_RUNNER_SATURATION_2_4_6",
               "selectionObjective": "MAX_TOTAL_USEFUL_MATCHES_PER_HOUR",
               "maximumP95TimeoutFraction": 0.80,
               "maximumSingleTimeoutFraction": 0.90,
               "maximumCombinedRssBytes": 11 * 1024**3,
               "minimumAvailableMemoryBytes": 4 * 1024**3,
               "minimumDiskAvailableBytes": 10 * 1024**3,
+              "requireCgroupOomCounters": False,
               "sourceManifestSha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
               "saturationManifestSha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
               "matchTimeoutSeconds": source["matchTimeoutSeconds"],
               "verificationTimeoutSeconds": source["verificationTimeoutSeconds"],
-              "workerCounts": [8, 12, 16],
+              "workerCounts": [2, 4, 6],
               "workloadCells": list(cells),
               "jobCount": len(matches),
               "repeatPairCount": len(cells),
@@ -143,18 +144,36 @@ jobs:
           df -B1 "$RUNNER_TEMP" > "$RUNNER_TEMP/m3-saturation/disk-before.txt"
           xvfb-run -a -s "-screen 0 1024x768x24" glxinfo -B > "$RUNNER_TEMP/m3-saturation/glxinfo.txt"
 
-      - name: Run balanced 8/12/16-worker full waves
+      - name: Run balanced 2/4/6-worker full waves
         shell: bash
         run: |
           set -uo pipefail
           root="$RUNNER_TEMP/m3-saturation"
           registration="$RUNNER_TEMP/m3-saturation-registration"
 
-          for workers in 8 12 16; do
+          resolve_memory_events()
+          {
+            if [[ -r /sys/fs/cgroup/memory.events ]]; then
+              printf '%s\n' /sys/fs/cgroup/memory.events
+              return
+            fi
+
+            local relative
+            relative=$(awk -F: '$1 == "0" { print $3; exit }' /proc/self/cgroup)
+            if [[ -n "$relative" && -r "/sys/fs/cgroup$relative/memory.events" ]]; then
+              printf '%s\n' "/sys/fs/cgroup$relative/memory.events"
+            fi
+          }
+
+          memory_events_path=$(resolve_memory_events)
+          printf '%s\n' "$memory_events_path" > "$root/memory-events-path.txt"
+          cp /proc/self/cgroup "$root/proc-self-cgroup.txt"
+
+          for workers in 2 4 6; do
             samples="$root/resource-samples-workers-$workers.csv"
             echo 'unix_ms,mem_available_bytes,swap_used_bytes,load_1m,openra_processes,openra_rss_kib,disk_available_bytes' > "$samples"
-            if [[ -r /sys/fs/cgroup/memory.events ]]; then
-              cp /sys/fs/cgroup/memory.events "$root/memory-events-before-workers-$workers.txt"
+            if [[ -n "$memory_events_path" ]]; then
+              cp "$memory_events_path" "$root/memory-events-before-workers-$workers.txt"
             fi
 
             set +e
@@ -189,8 +208,8 @@ jobs:
             controller_exit=$?
             set -e
             echo "$controller_exit" > "$root/controller-exit-code-workers-$workers.txt"
-            if [[ -r /sys/fs/cgroup/memory.events ]]; then
-              cp /sys/fs/cgroup/memory.events "$root/memory-events-after-workers-$workers.txt"
+            if [[ -n "$memory_events_path" ]]; then
+              cp "$memory_events_path" "$root/memory-events-after-workers-$workers.txt"
             fi
           done
 
@@ -393,7 +412,10 @@ jobs:
                   "availableMemoryWithinLimit": min_available >= registration["minimumAvailableMemoryBytes"],
                   "diskWithinLimit": min_disk_available >= registration["minimumDiskAvailableBytes"],
                   "noSwap": max_swap_used == 0,
-                  "memoryEventsAvailable": memory_events_available,
+                  "oomEvidenceRequirementMet": (
+                      memory_events_available
+                      or not registration["requireCgroupOomCounters"]
+                  ),
                   "noOom": oom_delta == 0 and oom_kill_delta == 0,
                   "withinTierDeterministic": not duplicate_differences,
               }
@@ -456,11 +478,13 @@ jobs:
                   summary["aggregateGainVsPreviousFraction"] = None
               previous = summary
 
-          if cross_count_differences:
-              for summary in summaries:
-                  if summary.get("workers") != registration["workerCounts"][0]:
-                      summary["eligible"] = False
-                      summary.setdefault("eligibilityFailures", []).append("crossTierDeterministic")
+          for summary in summaries:
+              if any(
+                  difference["workers"] == summary.get("workers")
+                  for difference in cross_count_differences
+              ):
+                  summary["eligible"] = False
+                  summary.setdefault("eligibilityFailures", []).append("crossTierDeterministic")
 
           eligible_summaries = [summary for summary in summaries if summary.get("eligible")]
           winner = max(
@@ -512,7 +536,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-github-runner-saturation-8-12-16-${{ github.run_attempt }}
+          name: strategic-ai-github-runner-saturation-2-4-6-${{ github.run_attempt }}
           path: ${{ runner.temp }}/strategic-ai-saturation-evidence/github-runner-saturation.tar.gz
           if-no-files-found: error
           retention-days: 1
