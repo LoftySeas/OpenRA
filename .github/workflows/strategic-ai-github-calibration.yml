@@ -2,8 +2,6 @@ name: Strategic AI GitHub Runner Concurrency Screen
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ 'codex/strategic-ai-github-five-minute-probe' ]
 
 permissions:
   contents: read

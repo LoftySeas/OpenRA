@@ -657,7 +657,6 @@ def calibration_job_evidence(job: dict) -> dict:
         "recordedFinalWorldTick": verification_result.get("recordedFinalWorldTick"),
         "observedFinalWorldTick": verification_result.get("observedFinalWorldTick"),
         "verifiedFinalNetworkFrame": verification_result.get("finalNetworkFrame"),
-        "lastValidatedSyncFrame": verification_result.get("lastValidatedSyncFrame"),
         "outOfSyncFrame": verification_result.get("outOfSyncFrame"),
         "scheduledMatchTimeoutTick": verification_result.get("scheduledMatchTimeoutTick"),
     }

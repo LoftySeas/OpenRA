@@ -505,7 +505,7 @@ class StrategicAiRunnerTest(unittest.TestCase):
         self.assertFalse(mismatch["candidateCriteria"]["4"]["noCrossRunMismatch"])
 
     def test_calibration_equivalence_compares_deterministic_job_evidence(self):
-        def job(final_tick=600):
+        def job(final_tick=600, last_sync_frame=198):
             return {
                 "status": "VALID",
                 "specificationSha256": "a" * 64,
@@ -532,7 +532,7 @@ class StrategicAiRunnerTest(unittest.TestCase):
                         "recordedFinalWorldTick": final_tick,
                         "observedFinalWorldTick": final_tick,
                         "finalNetworkFrame": 200,
-                        "lastValidatedSyncFrame": 198,
+                        "lastValidatedSyncFrame": last_sync_frame,
                         "outOfSyncFrame": None,
                         "scheduledMatchTimeoutTick": 600,
                     },
@@ -541,11 +541,11 @@ class StrategicAiRunnerTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for workers, final_tick in ((1, 600), (2, 600), (4, 601)):
+            for workers, final_tick, last_sync_frame in ((1, 600, 198), (2, 600, 199), (4, 601, 199)):
                 path = root / f"workers-{workers}"
                 path.mkdir()
                 (path / "experiment-result.json").write_text(
-                    json.dumps({"jobs": {"job-a": job(final_tick)}}),
+                    json.dumps({"jobs": {"job-a": job(final_tick, last_sync_frame)}}),
                     encoding="utf-8",
                 )
 
@@ -556,7 +556,7 @@ class StrategicAiRunnerTest(unittest.TestCase):
             self.assertIn("finalWorldTick", report["comparisons"][0]["differences"])
 
     def test_repeat_equivalence_rejects_deterministic_drift(self):
-        def job(final_hash):
+        def job(final_hash, last_sync_frame):
             return {
                 "status": "VALID",
                 "match": {
@@ -579,7 +579,7 @@ class StrategicAiRunnerTest(unittest.TestCase):
                         "recordedFinalWorldTick": 1000,
                         "observedFinalWorldTick": 1000,
                         "finalNetworkFrame": 334,
-                        "lastValidatedSyncFrame": 330,
+                        "lastValidatedSyncFrame": last_sync_frame,
                         "outOfSyncFrame": None,
                         "scheduledMatchTimeoutTick": 90000,
                     },
@@ -588,10 +588,10 @@ class StrategicAiRunnerTest(unittest.TestCase):
 
         report = strategic_ai_runner.repeat_equivalence_report(
             {
-                "cell-a-r0": job(123),
-                "cell-a-r1": job(123),
-                "cell-b-r0": job(123),
-                "cell-b-r1": job(456),
+                "cell-a-r0": job(123, 330),
+                "cell-a-r1": job(123, 331),
+                "cell-b-r0": job(123, 330),
+                "cell-b-r1": job(456, 331),
             }
         )
         self.assertEqual(2, report["pairCount"])
