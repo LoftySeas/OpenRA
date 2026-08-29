@@ -41,7 +41,7 @@ jobs:
 
           input="$RUNNER_TEMP/five-minute-probe-input"
           mkdir -p "$input"
-          cp docs/ai/examples/automated-match-m3-candidate.json "$input/match.json"
+          cp docs/ai/examples/automated-match.json "$input/match.json"
           cp docs/ai/examples/m3-candidate-baseline.json "$input/m3-candidate-baseline.json"
 
           python3 - <<'PY'
@@ -53,6 +53,7 @@ jobs:
           value = json.loads(path.read_text(encoding="utf-8"))
           value["maxWorldTicks"] = 90000
           value["executionMode"] = "UNCAPPED"
+          value["candidatePath"] = "m3-candidate-baseline.json"
           path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
           PY
 
@@ -176,6 +177,7 @@ jobs:
         if: always()
         run: |
           root="$RUNNER_TEMP/five-minute-probe"
+          mkdir -p "$root"
           free -b > "$root/memory-after.txt"
           df -B1 "$RUNNER_TEMP" > "$root/disk-after.txt"
 
@@ -183,7 +185,10 @@ jobs:
         if: always()
         run: |
           stage="$RUNNER_TEMP/strategic-ai-five-minute-probe-evidence"
-          mkdir -p "$stage"
+          mkdir -p \
+            "$stage" \
+            "$RUNNER_TEMP/five-minute-probe" \
+            "$RUNNER_TEMP/five-minute-probe-input"
           tar \
             --exclude='*/Content' \
             --exclude='*/Content/*' \
@@ -199,7 +204,7 @@ jobs:
           import tarfile
 
           archive = os.environ["ARCHIVE"]
-          allowed = ("five-minute-probe/", "five-minute-probe-input/")
+          allowed = ("five-minute-probe", "five-minute-probe-input")
           forbidden = re.compile(r"(^|/)(Content)(/|$)|(^|/)ra-quickinstall\.zip$|\.(mix|aud)$", re.IGNORECASE)
           with tarfile.open(archive, "r:gz") as value:
               names = value.getnames()
@@ -207,7 +212,7 @@ jobs:
               name for name in names
               if name.startswith(("/", "\\"))
               or ".." in name.replace("\\", "/").split("/")
-              or not name.startswith(allowed)
+              or not any(name == root or name.startswith(root + "/") for root in allowed)
               or forbidden.search(name)
           ]
           if invalid:
