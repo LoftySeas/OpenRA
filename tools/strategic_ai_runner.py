@@ -27,7 +27,7 @@ from typing import Callable
 
 
 SCHEMA_VERSION = "1.0.0"
-MAX_WORKERS = 8
+MAX_WORKERS = 16
 SAFE_JOB_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
 ACTIVE_PROCESSES: set[subprocess.Popen[bytes]] = set()
 ACTIVE_PROCESSES_LOCK = threading.Lock()

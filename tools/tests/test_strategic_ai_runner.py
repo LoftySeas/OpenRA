@@ -325,7 +325,7 @@ class StrategicAiRunnerTest(unittest.TestCase):
             strategic_ai_runner.atomic_json(job_root / "job-result.json", {"status": "FAILED", "attempt": 1})
             self.assertEqual(2, strategic_ai_runner.next_attempt_number(job_root))
 
-    def test_max_workers_accepts_up_to_eight_and_rejects_nine(self):
+    def test_max_workers_accepts_up_to_sixteen_and_rejects_seventeen(self):
         parser = strategic_ai_runner.build_parser()
         parsed = parser.parse_args(
             [
@@ -337,10 +337,10 @@ class StrategicAiRunnerTest(unittest.TestCase):
                 "--content-dir",
                 "content",
                 "--max-workers",
-                "8",
+                "16",
             ]
         )
-        self.assertEqual(8, parsed.max_workers)
+        self.assertEqual(16, parsed.max_workers)
         with self.assertRaises(SystemExit):
             parser.parse_args(
                 [
@@ -352,7 +352,7 @@ class StrategicAiRunnerTest(unittest.TestCase):
                     "--content-dir",
                     "content",
                     "--max-workers",
-                    "9",
+                    "17",
                 ]
             )
 
