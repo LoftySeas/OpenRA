@@ -1,425 +1,307 @@
-name: Strategic AI GitHub Runner Quick Screen
+name: Strategic AI GitHub Distributed Smoke
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  screen:
-    name: Ubuntu six-job 2/4/6-worker quick screen
+  shard:
+    name: Distributed smoke shard ${{ matrix.shard }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 35
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0, 1, 2, 3]
     env:
+      SHARD_INDEX: ${{ matrix.shard }}
       SDL_AUDIODRIVER: dummy
       LIBGL_ALWAYS_SOFTWARE: '1'
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
 
     steps:
-      - name: Clone exact quick-screen commit
+      - name: Check out the exact distributed-smoke commit
         uses: actions/checkout@v7
 
-      - name: Initialize evidence roots
-        run: mkdir -p "$RUNNER_TEMP/m3-quick" "$RUNNER_TEMP/m3-quick-registration"
+      - name: Initialize isolated shard roots
+        run: |
+          mkdir -p \
+            "$RUNNER_TEMP/m3-distributed-shard-$SHARD_INDEX/run" \
+            "$RUNNER_TEMP/m3-distributed-registration-$SHARD_INDEX" \
+            "$RUNNER_TEMP/m3-distributed-artifact-$SHARD_INDEX"
 
-      - name: Install .NET 10 and runtime packages
+      - name: Install .NET 10
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install Xvfb and Mesa
+      - name: Install Xvfb, Mesa, and GNU time
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends xvfb xauth libgl1-mesa-dri libglx-mesa0 libopenal1 mesa-utils time
+          sudo apt-get install --no-install-recommends \
+            xvfb xauth libgl1-mesa-dri libglx-mesa0 libopenal1 mesa-utils time
 
-      - name: Test the controller
+      - name: Validate controller and distributed-smoke tooling
         run: |
-          python3 -m unittest tools.tests.test_strategic_ai_runner
+          python3 -m unittest \
+            tools.tests.test_strategic_ai_runner \
+            tools.tests.test_prepare_github_distributed_smoke \
+            tools.tests.test_aggregate_github_distributed_smoke
           bash -n tools/run_github_quick_tier.sh
 
-      - name: Build the Linux worker once
+      - name: Build the Linux worker once on this runner
         run: dotnet build -c Debug -nologo -warnaserror -p:TargetPlatform=linux-x64
 
-      - name: Prepare verified RA content
+      - name: Prepare independently verified RA content
         run: |
-          mkdir -p "$RUNNER_TEMP/strategic-ai-content"
-          python3 tools/prepare_ra_content.py --support-dir "$RUNNER_TEMP/strategic-ai-content"
+          mkdir -p "$RUNNER_TEMP/strategic-ai-content-$SHARD_INDEX"
+          python3 tools/prepare_ra_content.py \
+            --support-dir "$RUNNER_TEMP/strategic-ai-content-$SHARD_INDEX"
 
-      - name: Materialize the frozen six-job quick screen
+      - name: Materialize the registered four-job shard
         run: |
+          registration_root="$RUNNER_TEMP/m3-distributed-registration-$SHARD_INDEX"
           python3 tools/prepare_m3_experiment.py \
             --plan docs/ai/examples/m3-experiment-plan.json \
             --phase training \
-            --output-dir "$RUNNER_TEMP/m3-quick-registration"
-          python3 - <<'PY'
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
+            --output-dir "$registration_root"
+          python3 tools/prepare_github_distributed_smoke.py \
+            --source-manifest "$registration_root/experiment-manifest.json" \
+            --output-dir "$registration_root" \
+            --shard-index "$SHARD_INDEX" \
+            --controller-script tools/strategic_ai_runner.py \
+            --execution-sha "$GITHUB_SHA" \
+            --design-base-sha 31e30ab3831f03b66e7fb49b96aa5825ba6ba437
 
-          root = Path(os.environ["RUNNER_TEMP"]) / "m3-quick-registration"
-          source_path = root / "experiment-manifest.json"
-          output_path = root / "github-quick-six.json"
-          source = json.loads(source_path.read_text(encoding="utf-8"))
-          by_id = {match["id"]: match for match in source["matches"]}
-          selected = (
-              ("tr-ore-lord-normal-s01-c40-r0", "quick-ore-lord-normal-c40"),
-              ("tr-ore-lord-rush-s02-c40-r0", "quick-ore-lord-rush-c40"),
-              ("tr-siberian-pass-normal-s03-c40-r0", "quick-siberian-pass-normal-c40"),
-              ("tr-siberian-pass-rush-s04-c40-r0", "quick-siberian-pass-rush-c40"),
-              ("tr-behind-the-veil-normal-s05-c40-r0", "quick-behind-the-veil-normal-c40"),
-              ("tr-behind-the-veil-rush-s06-c40-r0", "quick-behind-the-veil-rush-c40"),
-          )
-
-          specification_root = root / "quick-specifications"
-          specification_root.mkdir(exist_ok=True)
-          matches = []
-          provenance = {}
-          for source_id, quick_id in selected:
-              if source_id not in by_id:
-                  raise SystemExit(f"Training manifest lacks {source_id}")
-              source_match = by_id[source_id]
-              source_specification = root / source_match["specificationPath"]
-              specification = json.loads(source_specification.read_text(encoding="utf-8"))
-              specification["maxWorldTicks"] = 30000
-              quick_specification = specification_root / f"{quick_id}.json"
-              quick_specification.write_text(
-                  json.dumps(specification, indent=2, sort_keys=True) + "\n",
-                  encoding="utf-8",
-              )
-              match = dict(source_match)
-              match["id"] = quick_id
-              match["specificationPath"] = quick_specification.relative_to(root).as_posix()
-              matches.append(match)
-              provenance[quick_id] = source_id
-
-          value = dict(source)
-          value["matches"] = matches
-          value["matchTimeoutSeconds"] = 120
-          value["verificationTimeoutSeconds"] = 90
-          output_path.write_text(
-              json.dumps(value, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          registration = {
-              "schemaVersion": "1.0.0",
-              "decisionInfluence": "NONE",
-              "formalSelection": False,
-              "purpose": "GITHUB_RUNNER_QUICK_SCREEN",
-              "selectionObjective": "MAX_TOTAL_USEFUL_MATCHES_PER_HOUR",
-              "sourceManifestSha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
-              "quickManifestSha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
-              "workerCounts": [2, 4, 6],
-              "jobCount": len(matches),
-              "repeatPairCount": 0,
-              "maxWorldTicks": 30000,
-              "matchTimeoutSeconds": 120,
-              "verificationTimeoutSeconds": 90,
-              "jobIds": [match["id"] for match in matches],
-              "sourceJobIds": provenance,
-          }
-          (root / "github-quick-registration.json").write_text(
-              json.dumps(registration, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          PY
-
-      - name: Capture runner identity
+      - name: Capture runner identity and hardware
         run: |
           python3 - <<'PY'
+          import datetime
           import json
           import os
           import platform
+          import subprocess
           from pathlib import Path
 
           keys = (
               "GITHUB_REPOSITORY", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_SHA",
-              "RUNNER_NAME", "RUNNER_OS", "RUNNER_ARCH", "ImageOS", "ImageVersion",
+              "GITHUB_JOB", "RUNNER_NAME", "RUNNER_OS", "RUNNER_ARCH", "ImageOS",
+              "ImageVersion", "SHARD_INDEX",
           )
           value = {key: os.environ.get(key) for key in keys}
+          value["gitHeadSha"] = subprocess.check_output(
+              ["git", "rev-parse", "HEAD"], text=True
+          ).strip()
+          value["capturedUtc"] = datetime.datetime.now(
+              datetime.timezone.utc
+          ).isoformat().replace("+00:00", "Z")
           value["platform"] = platform.platform()
           value["processor"] = platform.processor()
-          path = Path(os.environ["RUNNER_TEMP"]) / "m3-quick" / "runner-metadata.json"
-          path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          value["maxWorkers"] = 4
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "m3-distributed-shard-" + os.environ["SHARD_INDEX"]
+          )
+          (root / "runner-metadata.json").write_text(
+              json.dumps(value, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
           PY
-          uname -a > "$RUNNER_TEMP/m3-quick/uname.txt"
-          lscpu > "$RUNNER_TEMP/m3-quick/lscpu.txt"
+          uname -a > "$RUNNER_TEMP/m3-distributed-shard-$SHARD_INDEX/uname.txt"
+          lscpu > "$RUNNER_TEMP/m3-distributed-shard-$SHARD_INDEX/lscpu.txt"
 
-      - name: Run six jobs with 2 workers
-        run: |
-          bash tools/run_github_quick_tier.sh 2 \
-            "$RUNNER_TEMP/m3-quick-registration/github-quick-six.json" \
-            "$RUNNER_TEMP/m3-quick/workers-2" \
-            "$RUNNER_TEMP/strategic-ai-content/Content" \
-            "$GITHUB_WORKSPACE" \
-            "$RUNNER_TEMP/m3-quick"
-
-      - name: Stage 2-worker evidence
-        if: always()
-        run: |
-          stage="$RUNNER_TEMP/m3-quick-tier-2"
-          mkdir -p "$stage" "$RUNNER_TEMP/m3-quick/workers-2"
-          tar --exclude='*/Content' --exclude='*/Content/*' --exclude='ra-quickinstall.zip' \
-            -czf "$stage/workers-2.tar.gz" -C "$RUNNER_TEMP" \
-            m3-quick/workers-2 m3-quick-registration \
-            m3-quick/resource-samples-workers-2.csv m3-quick/workers-2-time.txt \
-            m3-quick/controller-exit-code-workers-2.txt m3-quick/runner-metadata.json \
-            m3-quick/memory-events-before-workers-2.txt m3-quick/memory-events-after-workers-2.txt \
-            m3-quick/uname.txt m3-quick/lscpu.txt
-
-      - name: Upload 2-worker evidence
-        if: always()
+      - name: Publish shard readiness marker
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-quick-screen-workers-2-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/m3-quick-tier-2/workers-2.tar.gz
+          name: strategic-ai-distributed-ready-shard-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/m3-distributed-shard-${{ matrix.shard }}/runner-metadata.json
           if-no-files-found: error
           retention-days: 1
 
-      - name: Run six jobs with 4 workers
-        if: always()
+      - name: Synchronize the four shard workers
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+          import time
+          import urllib.request
+          from pathlib import Path
+
+          attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+          expected = {
+              f"strategic-ai-distributed-ready-shard-{shard}-{attempt}"
+              for shard in range(4)
+          }
+          api_root = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
+          url = (
+              f"{api_root}/repos/{os.environ['GITHUB_REPOSITORY']}"
+              f"/actions/runs/{os.environ['GITHUB_RUN_ID']}/artifacts?per_page=100"
+          )
+          headers = {
+              "Accept": "application/vnd.github+json",
+              "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+              "User-Agent": "OpenRA-distributed-smoke-barrier",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          deadline = time.monotonic() + 240
+          observed = set()
+          while time.monotonic() < deadline:
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  value = json.load(response)
+              observed = {
+                  artifact.get("name")
+                  for artifact in value.get("artifacts", [])
+                  if not artifact.get("expired")
+              }
+              if expected <= observed:
+                  break
+              time.sleep(2)
+          else:
+              missing = sorted(expected - observed)
+              raise SystemExit(f"Timed out waiting for shard readiness artifacts: {missing}")
+
+          root = Path(os.environ["RUNNER_TEMP"]) / (
+              "m3-distributed-shard-" + os.environ["SHARD_INDEX"]
+          )
+          (root / "barrier-release.json").write_text(
+              json.dumps(
+                  {
+                      "schemaVersion": "1.0.0",
+                      "expectedArtifacts": sorted(expected),
+                      "observedExpectedArtifacts": sorted(expected & observed),
+                      "releasedUtc": datetime.datetime.now(
+                          datetime.timezone.utc
+                      ).isoformat().replace("+00:00", "Z"),
+                  },
+                  indent=2,
+                  sort_keys=True,
+              ) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Run four jobs with four workers
         run: |
           bash tools/run_github_quick_tier.sh 4 \
-            "$RUNNER_TEMP/m3-quick-registration/github-quick-six.json" \
-            "$RUNNER_TEMP/m3-quick/workers-4" \
-            "$RUNNER_TEMP/strategic-ai-content/Content" \
+            "$RUNNER_TEMP/m3-distributed-registration-$SHARD_INDEX/github-distributed-smoke-manifest.json" \
+            "$RUNNER_TEMP/m3-distributed-shard-$SHARD_INDEX/run" \
+            "$RUNNER_TEMP/strategic-ai-content-$SHARD_INDEX/Content" \
             "$GITHUB_WORKSPACE" \
-            "$RUNNER_TEMP/m3-quick"
+            "$RUNNER_TEMP/m3-distributed-shard-$SHARD_INDEX"
 
-      - name: Stage 4-worker evidence
+      - name: Stage the bounded shard evidence archive
         if: always()
         run: |
-          stage="$RUNNER_TEMP/m3-quick-tier-4"
-          mkdir -p "$stage" "$RUNNER_TEMP/m3-quick/workers-4"
-          tar --exclude='*/Content' --exclude='*/Content/*' --exclude='ra-quickinstall.zip' \
-            -czf "$stage/workers-4.tar.gz" -C "$RUNNER_TEMP" \
-            m3-quick/workers-4 m3-quick-registration \
-            m3-quick/resource-samples-workers-4.csv m3-quick/workers-4-time.txt \
-            m3-quick/controller-exit-code-workers-4.txt m3-quick/runner-metadata.json \
-            m3-quick/memory-events-before-workers-4.txt m3-quick/memory-events-after-workers-4.txt \
-            m3-quick/uname.txt m3-quick/lscpu.txt
+          evidence_root="m3-distributed-shard-$SHARD_INDEX"
+          registration_root="m3-distributed-registration-$SHARD_INDEX"
+          archive="$RUNNER_TEMP/m3-distributed-artifact-$SHARD_INDEX/shard-$SHARD_INDEX.tar.gz"
+          mkdir -p \
+            "$RUNNER_TEMP/$evidence_root/run" \
+            "$RUNNER_TEMP/$registration_root" \
+            "$(dirname "$archive")"
+          tar \
+            --exclude='*/Content' \
+            --exclude='*/Content/*' \
+            --exclude='*/ra-quickinstall.zip' \
+            -czf "$archive" \
+            -C "$RUNNER_TEMP" \
+            "$evidence_root" "$registration_root"
 
-      - name: Upload 4-worker evidence
+      - name: Upload this shard evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-quick-screen-workers-4-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/m3-quick-tier-4/workers-4.tar.gz
+          name: strategic-ai-distributed-smoke-shard-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/m3-distributed-artifact-${{ matrix.shard }}/shard-${{ matrix.shard }}.tar.gz
           if-no-files-found: error
           retention-days: 1
 
-      - name: Run six jobs with 6 workers
-        if: always()
-        run: |
-          bash tools/run_github_quick_tier.sh 6 \
-            "$RUNNER_TEMP/m3-quick-registration/github-quick-six.json" \
-            "$RUNNER_TEMP/m3-quick/workers-6" \
-            "$RUNNER_TEMP/strategic-ai-content/Content" \
-            "$GITHUB_WORKSPACE" \
-            "$RUNNER_TEMP/m3-quick"
-
-      - name: Stage 6-worker evidence
-        if: always()
-        run: |
-          stage="$RUNNER_TEMP/m3-quick-tier-6"
-          mkdir -p "$stage" "$RUNNER_TEMP/m3-quick/workers-6"
-          tar --exclude='*/Content' --exclude='*/Content/*' --exclude='ra-quickinstall.zip' \
-            -czf "$stage/workers-6.tar.gz" -C "$RUNNER_TEMP" \
-            m3-quick/workers-6 m3-quick-registration \
-            m3-quick/resource-samples-workers-6.csv m3-quick/workers-6-time.txt \
-            m3-quick/controller-exit-code-workers-6.txt m3-quick/runner-metadata.json \
-            m3-quick/memory-events-before-workers-6.txt m3-quick/memory-events-after-workers-6.txt \
-            m3-quick/uname.txt m3-quick/lscpu.txt
-
-      - name: Upload 6-worker evidence
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: strategic-ai-quick-screen-workers-6-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/m3-quick-tier-6/workers-6.tar.gz
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Classify the quick screen
+      - name: Propagate the shard controller result
         if: always()
         run: |
           python3 - <<'PY'
-          import csv
           import json
           import os
           from pathlib import Path
 
-          root = Path(os.environ["RUNNER_TEMP"]) / "m3-quick"
-          registration_root = Path(os.environ["RUNNER_TEMP"]) / "m3-quick-registration"
-          registration = json.loads(
-              (registration_root / "github-quick-registration.json").read_text(encoding="utf-8")
-          )
-          expected_ids = set(registration["jobIds"])
-
-          def evidence(job):
-              match = job.get("match") or {}
-              match_result = match.get("result") or {}
-              verification = job.get("verification") or {}
-              verification_result = verification.get("result") or {}
-              return {
-                  "specificationSha256": job.get("specificationSha256"),
-                  "matchStatus": match_result.get("status"),
-                  "finalWorldTick": match_result.get("finalWorldTick"),
-                  "finalSyncHash": match_result.get("finalSyncHash"),
-                  "orderDigestSha256": match_result.get("orderDigestSha256"),
-                  "strategicDecisionDigestSha256": match_result.get("strategicDecisionDigestSha256"),
-                  "players": match_result.get("players"),
-                  "verificationStatus": verification_result.get("status"),
-                  "observedFinalWorldTick": verification_result.get("observedFinalWorldTick"),
-                  "outOfSyncFrame": verification_result.get("outOfSyncFrame"),
-              }
-
-          def memory_events(path):
-              if not path.is_file():
-                  return {}
-              return {
-                  key: int(value)
-                  for key, value in (line.split() for line in path.read_text(encoding="utf-8").splitlines())
-              }
-
-          summaries = []
-          baseline = None
-          baseline_jobs = None
-          cross_differences = []
-          cross_incomplete = []
-          measurement_complete = True
-          for workers in registration["workerCounts"]:
-              result_path = root / f"workers-{workers}" / "experiment-result.json"
-              if not result_path.is_file():
-                  measurement_complete = False
-                  summaries.append({"workers": workers, "eligible": False, "resultMissing": True})
-                  continue
-              result = json.loads(result_path.read_text(encoding="utf-8"))
-              jobs = result.get("jobs") or {}
-              if set(jobs) != expected_ids:
-                  measurement_complete = False
-              current = {job_id: evidence(job) for job_id, job in jobs.items()}
-              if baseline is None:
-                  baseline = current
-                  baseline_jobs = jobs
-              else:
-                  for job_id in sorted(expected_ids):
-                      if job_id not in baseline or job_id not in current:
-                          cross_incomplete.append({"workers": workers, "jobId": job_id, "reason": "missing"})
-                          continue
-                      baseline_job = (baseline_jobs or {}).get(job_id) or {}
-                      current_job = jobs.get(job_id) or {}
-                      if baseline_job.get("status") != "VALID" or current_job.get("status") != "VALID":
-                          cross_incomplete.append({"workers": workers, "jobId": job_id, "reason": "invalid"})
-                          continue
-                      fields = [field for field in baseline[job_id] if baseline[job_id][field] != current[job_id][field]]
-                      if fields:
-                          cross_differences.append({"workers": workers, "jobId": job_id, "fields": fields})
-
-              controller_path = root / f"controller-exit-code-workers-{workers}.txt"
-              controller_exit = int(controller_path.read_text(encoding="utf-8").strip()) if controller_path.is_file() else None
-              samples_path = root / f"resource-samples-workers-{workers}.csv"
-              samples = []
-              if samples_path.is_file():
-                  with samples_path.open(newline="", encoding="utf-8") as stream:
-                      samples = list(csv.DictReader(stream))
-              max_processes = max((int(row["openra_processes"]) for row in samples), default=0)
-              max_rss = max((int(row["openra_rss_kib"]) for row in samples), default=0) * 1024
-              min_available = min((int(row["mem_available_bytes"]) for row in samples), default=0)
-              min_disk = min((int(row["disk_available_bytes"]) for row in samples), default=0)
-              max_swap = max((int(row["swap_used_bytes"]) for row in samples), default=0)
-              events_before = memory_events(root / f"memory-events-before-workers-{workers}.txt")
-              events_after = memory_events(root / f"memory-events-after-workers-{workers}.txt")
-              oom_delta = events_after.get("oom", 0) - events_before.get("oom", 0)
-              oom_kill_delta = events_after.get("oom_kill", 0) - events_before.get("oom_kill", 0)
-              valid_count = sum(job.get("status") == "VALID" for job in jobs.values())
-              timed_out_count = sum(
-                  bool((job.get("match") or {}).get("timedOut"))
-                  or bool((job.get("verification") or {}).get("timedOut"))
-                  for job in jobs.values()
-              )
-              replay_logs = list((root / f"workers-{workers}").glob("workers/*/attempts/*/verify/Logs/strategic-decisions.log"))
-              replay_log_bytes = sum(path.stat().st_size for path in replay_logs)
-              repeat = result.get("repeatEquivalence") or {}
-              provenance = result.get("controllerProvenance") or {}
-              wall = result.get("wallClockElapsedSeconds") or 0
-              checks = {
-                  "controllerExitZero": controller_exit == 0,
-                  "resultCompleted": result.get("status") == "COMPLETED",
-                  "manifestIdentity": result.get("manifestSha256") == registration["quickManifestSha256"],
-                  "requestedConcurrencyRecorded": result.get("maxWorkers") == workers,
-                  "requestedConcurrencyObserved": max_processes == workers,
-                  "controllerProvenanceComplete": provenance.get("complete") is True,
-                  "exactJobIds": set(jobs) == expected_ids,
-                  "allJobsValid": valid_count == registration["jobCount"],
-                  "noProcessTimeout": timed_out_count == 0,
-                  "noImplicitRepeatPairs": repeat.get("pairCount") == 0,
-                  "replayLogsPresentAndEmpty": len(replay_logs) == registration["jobCount"] and replay_log_bytes == 0,
-                  "rssWithinLimit": max_rss <= 11 * 1024**3,
-                  "availableMemoryWithinLimit": min_available >= 4 * 1024**3,
-                  "diskWithinLimit": min_disk >= 10 * 1024**3,
-                  "noSwap": max_swap == 0,
-                  "noOom": oom_delta == 0 and oom_kill_delta == 0,
-              }
-              failures = [name for name, passed in checks.items() if not passed]
-              summaries.append({
-                  "workers": workers,
-                  "jobCount": len(jobs),
-                  "validCount": valid_count,
-                  "controllerExitCode": controller_exit,
-                  "timedOutProcessCount": timed_out_count,
-                  "wallClockElapsedSeconds": wall,
-                  "usefulMatchesPerHour": valid_count * 3600 / wall if wall else 0,
-                  "maxOpenRaProcesses": max_processes,
-                  "maxCombinedRssBytes": max_rss,
-                  "minAvailableMemoryBytes": min_available,
-                  "minDiskAvailableBytes": min_disk,
-                  "maxSwapUsedBytes": max_swap,
-                  "oomDelta": oom_delta,
-                  "oomKillDelta": oom_kill_delta,
-                  "eligibilityChecks": checks,
-                  "eligibilityFailures": failures,
-                  "eligible": not failures,
-              })
-
-          for summary in summaries:
-              if any(item["workers"] == summary["workers"] for item in cross_differences):
-                  summary["eligible"] = False
-                  summary.setdefault("eligibilityFailures", []).append("crossTierDeterministic")
-          eligible = [summary for summary in summaries if summary.get("eligible")]
-          winner = max(eligible, key=lambda item: (item["usefulMatchesPerHour"], -item["workers"]), default=None)
-          decision = {
-              "schemaVersion": "1.0.0",
-              "decisionInfluence": "NONE",
-              "formalSelection": False,
-              "purpose": "GITHUB_RUNNER_QUICK_SCREEN",
-              "measurementComplete": measurement_complete,
-              "screenWinnerWorkers": winner["workers"] if winner else None,
-              "crossCountMismatchCount": len(cross_differences),
-              "crossCountDifferences": cross_differences,
-              "crossCountIncompleteCount": len(cross_incomplete),
-              "crossCountIncomplete": cross_incomplete,
-              "summaries": summaries,
-          }
-          (root / "quick-screen-decision.json").write_text(
-              json.dumps(decision, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          print(json.dumps(decision, indent=2, sort_keys=True))
-          if not measurement_complete:
-              raise SystemExit("Quick-screen measurement is incomplete")
-          if cross_differences:
-              raise SystemExit("Quick screen contains deterministic drift")
-          if winner is None:
-              raise SystemExit("Quick screen has no eligible tier")
+          shard = os.environ["SHARD_INDEX"]
+          root = Path(os.environ["RUNNER_TEMP"]) / f"m3-distributed-shard-{shard}"
+          exit_path = root / "controller-exit-code-workers-4.txt"
+          result_path = root / "run" / "experiment-result.json"
+          if not exit_path.is_file():
+              raise SystemExit("Shard controller exit-code evidence is missing")
+          if int(exit_path.read_text(encoding="utf-8").strip()) != 0:
+              raise SystemExit("Shard controller returned a nonzero exit code")
+          if not result_path.is_file():
+              raise SystemExit("Shard experiment-result.json is missing")
+          result = json.loads(result_path.read_text(encoding="utf-8"))
+          if result.get("status") != "COMPLETED":
+              raise SystemExit("Shard result is not COMPLETED")
           PY
 
-      - name: Upload quick-screen decision
+  aggregate:
+    name: Aggregate distributed smoke
+    needs: shard
+    if: always()
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+
+    steps:
+      - name: Check out the exact distributed-smoke commit
+        uses: actions/checkout@v7
+
+      - name: Initialize aggregation roots
+        run: mkdir -p "$RUNNER_TEMP/distributed-artifacts" "$RUNNER_TEMP/distributed-aggregate"
+
+      - name: Download all shard artifacts into independent directories
+        if: always()
+        uses: actions/download-artifact@v8
+        with:
+          pattern: strategic-ai-distributed-smoke-shard-*-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/distributed-artifacts
+
+      - name: Validate and aggregate the distributed smoke
+        id: aggregate
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          python3 tools/aggregate_github_distributed_smoke.py \
+            --artifacts-root "$RUNNER_TEMP/distributed-artifacts" \
+            --output "$RUNNER_TEMP/distributed-aggregate/distributed-smoke-result.json" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --repository "$GITHUB_REPOSITORY" \
+            --expected-execution-sha "$GITHUB_SHA"
+          aggregate_exit=$?
+          set -e
+          echo "exit_code=$aggregate_exit" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the aggregate result
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-quick-screen-decision-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/m3-quick/quick-screen-decision.json
+          name: strategic-ai-distributed-smoke-result-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/distributed-aggregate/distributed-smoke-result.json
           if-no-files-found: error
           retention-days: 1
+
+      - name: Propagate the aggregate result
+        if: always()
+        env:
+          AGGREGATE_EXIT: ${{ steps.aggregate.outputs.exit_code }}
+        run: |
+          if [[ "$AGGREGATE_EXIT" != "0" ]]; then
+            echo "Distributed smoke aggregation failed with exit code ${AGGREGATE_EXIT:-missing}." >&2
+            exit "${AGGREGATE_EXIT:-1}"
+          fi
