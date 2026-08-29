@@ -71,7 +71,6 @@ if [[ -n "$memory_events" ]]; then
 	cp "$memory_events" "$evidence_root/memory-events-after-workers-$workers.txt"
 fi
 
-# Tier validity is classified after all tiers have run. Returning success here
-# preserves the independent 2/4/6 steps and their artifacts when one tier is
-# overloaded or otherwise ineligible.
+# Return success so the workflow can always upload the recorded evidence.
+# The calling workflow propagates the recorded controller exit afterward.
 exit 0

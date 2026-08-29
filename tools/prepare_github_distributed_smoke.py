@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Materialize one immutable four-job GitHub Actions smoke shard."""
+"""Materialize one immutable GitHub Actions distributed-smoke shard."""
 
 from __future__ import annotations
 
@@ -29,6 +29,20 @@ class Selection:
     role: str
     source_job_id: str
     job_id: str
+
+
+@dataclass(frozen=True)
+class SmokeProfile:
+    cli_name: str
+    purpose: str
+    shard_count: int
+    max_workers: int
+    max_world_ticks: int
+    match_timeout_seconds: int
+    verification_timeout_seconds: int
+    sentinels: tuple[Selection, ...]
+    unique_by_shard: tuple[tuple[Selection, ...], ...]
+    include_profile_field: bool = False
 
 
 SENTINELS = (
@@ -95,6 +109,49 @@ UNIQUE_BY_SHARD = (
     ),
 )
 
+FOUR_SHARD_PROFILE = SmokeProfile(
+    "four-shard-smoke",
+    PURPOSE,
+    SHARD_COUNT,
+    MAX_WORKERS,
+    MAX_WORLD_TICKS,
+    MATCH_TIMEOUT_SECONDS,
+    VERIFICATION_TIMEOUT_SECONDS,
+    SENTINELS,
+    UNIQUE_BY_SHARD,
+)
+TWENTY_SHARD_PROFILE = SmokeProfile(
+    "twenty-shard-canary",
+    "GITHUB_RUNNER_TWENTY_SHARD_CANARY",
+    20,
+    1,
+    30000,
+    120,
+    90,
+    (
+        Selection(
+            "SENTINEL",
+            "tr-ore-lord-normal-s01-c40-r0",
+            "canary-sentinel-ore-lord-normal-c40",
+        ),
+    ),
+    tuple(() for _ in range(20)),
+    True,
+)
+PROFILES = {
+    FOUR_SHARD_PROFILE.cli_name: FOUR_SHARD_PROFILE,
+    TWENTY_SHARD_PROFILE.cli_name: TWENTY_SHARD_PROFILE,
+}
+
+
+def smoke_profile(profile_name: str | None = None) -> SmokeProfile:
+    if profile_name is None:
+        return FOUR_SHARD_PROFILE
+    try:
+        return PROFILES[profile_name]
+    except KeyError as exc:
+        raise ValueError(f"Unknown distributed-smoke profile: {profile_name!r}") from exc
+
 
 def serialized(value: object) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
@@ -157,12 +214,22 @@ def validate_git_sha(name: str, value: str) -> str:
     return normalized
 
 
-def selections_for_shard(shard_index: int) -> tuple[Selection, ...]:
-    if shard_index < 0 or shard_index >= SHARD_COUNT:
-        raise ValueError(f"shard_index must be in the range 0..{SHARD_COUNT - 1}")
-    selections = SENTINELS + UNIQUE_BY_SHARD[shard_index]
-    if len(selections) != 4 or len({item.job_id for item in selections}) != 4:
-        raise AssertionError("Distributed smoke shard design must contain four unique derived jobs")
+def selections_for_shard(
+    shard_index: int,
+    profile_name: str | None = None,
+) -> tuple[Selection, ...]:
+    profile = smoke_profile(profile_name)
+    if shard_index < 0 or shard_index >= profile.shard_count:
+        raise ValueError(
+            f"shard_index must be in the range 0..{profile.shard_count - 1}"
+        )
+    selections = profile.sentinels + profile.unique_by_shard[shard_index]
+    if (
+        len(selections) != len(profile.sentinels) + len(profile.unique_by_shard[shard_index])
+        or len({item.job_id for item in selections}) != len(selections)
+        or len(selections) < 1
+    ):
+        raise AssertionError("Distributed smoke profile contains invalid derived jobs")
     invalid = [item.job_id for item in selections if re.search(r"-r[01]$", item.job_id)]
     if invalid:
         raise AssertionError(f"Derived smoke ids must not form implicit repeat pairs: {invalid!r}")
@@ -193,6 +260,7 @@ def prepare(
     controller_script: Path,
     execution_sha: str,
     design_base_sha: str,
+    profile_name: str | None = None,
 ) -> Path:
     source_manifest = source_manifest.resolve()
     source_root = source_manifest.parent
@@ -200,7 +268,8 @@ def prepare(
     controller_script = controller_script.resolve()
     execution_sha = validate_git_sha("execution_sha", execution_sha)
     design_base_sha = validate_git_sha("design_base_sha", design_base_sha)
-    selections = selections_for_shard(shard_index)
+    profile = smoke_profile(profile_name)
+    selections = selections_for_shard(shard_index, profile.cli_name)
 
     if not source_manifest.is_file():
         raise ValueError(f"Source manifest does not exist: {source_manifest}")
@@ -262,7 +331,7 @@ def prepare(
         write_immutable(output_candidate, source_candidate.read_bytes())
 
         quick_specification_value = dict(specification)
-        quick_specification_value["maxWorldTicks"] = MAX_WORLD_TICKS
+        quick_specification_value["maxWorldTicks"] = profile.max_world_ticks
         quick_specification_bytes = serialized(quick_specification_value)
         write_immutable(quick_specification, quick_specification_bytes)
 
@@ -289,8 +358,8 @@ def prepare(
 
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
-        "matchTimeoutSeconds": MATCH_TIMEOUT_SECONDS,
-        "verificationTimeoutSeconds": VERIFICATION_TIMEOUT_SECONDS,
+        "matchTimeoutSeconds": profile.match_timeout_seconds,
+        "verificationTimeoutSeconds": profile.verification_timeout_seconds,
         "matches": quick_matches,
     }
     manifest_path = output_dir / "github-distributed-smoke-manifest.json"
@@ -299,16 +368,16 @@ def prepare(
 
     registration = {
         "schemaVersion": SCHEMA_VERSION,
-        "purpose": PURPOSE,
+        "purpose": profile.purpose,
         "decisionInfluence": "NONE",
         "formalSelection": False,
         "shardIndex": shard_index,
-        "shardCount": SHARD_COUNT,
-        "maxWorkers": MAX_WORKERS,
+        "shardCount": profile.shard_count,
+        "maxWorkers": profile.max_workers,
         "jobCount": len(quick_matches),
-        "maxWorldTicks": MAX_WORLD_TICKS,
-        "matchTimeoutSeconds": MATCH_TIMEOUT_SECONDS,
-        "verificationTimeoutSeconds": VERIFICATION_TIMEOUT_SECONDS,
+        "maxWorldTicks": profile.max_world_ticks,
+        "matchTimeoutSeconds": profile.match_timeout_seconds,
+        "verificationTimeoutSeconds": profile.verification_timeout_seconds,
         "executionSha": execution_sha,
         "designBaseSha": design_base_sha,
         "sourceManifestPath": relative_or_absolute(source_manifest, output_dir),
@@ -317,10 +386,12 @@ def prepare(
         "manifestSha256": bytes_sha256(manifest_bytes),
         "controllerScriptPath": str(controller_script),
         "controllerScriptSha256": file_sha256(controller_script),
-        "sentinelJobIds": [item.job_id for item in SENTINELS],
-        "uniqueJobIds": [item.job_id for item in UNIQUE_BY_SHARD[shard_index]],
+        "sentinelJobIds": [item.job_id for item in profile.sentinels],
+        "uniqueJobIds": [item.job_id for item in profile.unique_by_shard[shard_index]],
         "jobs": job_provenance,
     }
+    if profile.include_profile_field:
+        registration["profile"] = profile.cli_name
     registration_path = output_dir / "github-distributed-smoke-registration.json"
     write_immutable(registration_path, serialized(registration))
     return manifest_path
@@ -334,6 +405,7 @@ def main() -> int:
     parser.add_argument("--controller-script", type=Path, required=True)
     parser.add_argument("--execution-sha", required=True)
     parser.add_argument("--design-base-sha", required=True)
+    parser.add_argument("--profile", choices=sorted(PROFILES))
     args = parser.parse_args()
     manifest = prepare(
         args.source_manifest,
@@ -342,6 +414,7 @@ def main() -> int:
         args.controller_script,
         args.execution_sha,
         args.design_base_sha,
+        args.profile,
     )
     print(manifest)
     return 0

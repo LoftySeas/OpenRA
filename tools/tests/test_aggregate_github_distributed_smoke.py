@@ -173,6 +173,7 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
         mutate=None,
         mutate_after=None,
         sample_offset_ms: int | None = None,
+        profile=aggregate.FOUR_SHARD_PROFILE,
     ) -> Path:
         stage = root / "stage" / f"shard-{shard}"
         evidence_root = stage / f"m3-distributed-shard-{shard}"
@@ -186,6 +187,7 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
             TOOLS_ROOT / "strategic_ai_runner.py",
             self.execution_sha,
             self.design_base_sha,
+            profile.cli_name if profile.include_profile_field else None,
         )
         registration = json.loads(
             (registration_root / "github-distributed-smoke-registration.json").read_text(encoding="utf-8")
@@ -234,12 +236,12 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
                     "controllerScriptSha256": registration["controllerScriptSha256"],
                 }
             ],
-            "maxWorkers": 4,
+            "maxWorkers": profile.max_workers,
             "status": "COMPLETED",
             "controllerProvenance": {
-                "expectedJobCount": 4,
-                "recordedJobCount": 4,
-                "attributedJobCount": 4,
+                "expectedJobCount": profile.jobs_per_shard,
+                "recordedJobCount": profile.jobs_per_shard,
+                "attributedJobCount": profile.jobs_per_shard,
                 "legacyCoverageGap": False,
                 "unattributedJobIds": [],
                 "invalidAttributionJobIds": [],
@@ -260,11 +262,18 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
                 manifest,
             )
         self.write_json(evidence_root / "run" / "experiment-result.json", result)
-        (evidence_root / "controller-exit-code-workers-4.txt").write_text("0\n", encoding="utf-8")
-        (evidence_root / "workers-4-time.txt").write_text("Elapsed (wall clock) time: 0:03.00\n", encoding="utf-8")
+        workers = profile.max_workers
+        (evidence_root / f"controller-exit-code-workers-{workers}.txt").write_text("0\n", encoding="utf-8")
+        (evidence_root / f"workers-{workers}-time.txt").write_text(
+            "Elapsed (wall clock) time: 0:03.00\n", encoding="utf-8"
+        )
         events = "oom 0\noom_kill 0\n"
-        (evidence_root / "memory-events-before-workers-4.txt").write_text(events, encoding="utf-8")
-        (evidence_root / "memory-events-after-workers-4.txt").write_text(events, encoding="utf-8")
+        (evidence_root / f"memory-events-before-workers-{workers}.txt").write_text(
+            events, encoding="utf-8"
+        )
+        (evidence_root / f"memory-events-after-workers-{workers}.txt").write_text(
+            events, encoding="utf-8"
+        )
         self.write_json(
             evidence_root / "runner-metadata.json",
             {
@@ -275,17 +284,17 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
                 "RUNNER_NAME": f"GitHub Actions {shard + 1}",
                 "SHARD_INDEX": str(shard),
                 "gitHeadSha": self.execution_sha,
-                "maxWorkers": 4,
+                "maxWorkers": workers,
             },
         )
 
         base = self.sample_base_ms + (shard * 20 if sample_offset_ms is None else sample_offset_ms)
-        csv_path = evidence_root / "resource-samples-workers-4.csv"
+        csv_path = evidence_root / f"resource-samples-workers-{workers}.csv"
         csv_path.write_text(
             "unix_ms,mem_available_bytes,swap_used_bytes,load_1m,openra_processes,openra_rss_kib,disk_available_bytes\n"
             + "\n".join(
                 f"{base + index * 200},{8 * 1024**3},0,1.0,{processes},{2 * 1024**2},{12 * 1024**3}"
-                for index, processes in enumerate((0, 4, 4, 4, 0))
+                for index, processes in enumerate((0, workers, workers, workers, 0))
             )
             + "\n",
             encoding="utf-8",
@@ -302,7 +311,12 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
             stream.add(registration_root, arcname=registration_root.name)
         return archive
 
-    def make_actions_documents(self, root: Path, mutate=None) -> tuple[Path, Path]:
+    def make_actions_documents(
+        self,
+        root: Path,
+        mutate=None,
+        profile=aggregate.FOUR_SHARD_PROFILE,
+    ) -> tuple[Path, Path]:
         run_document = {
             "id": self.run_id,
             "run_attempt": self.run_attempt,
@@ -314,7 +328,7 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
             "conclusion": None,
         }
         jobs = []
-        for shard in range(4):
+        for shard in range(profile.shard_count):
             jobs.append(
                 {
                     "id": 9000 + shard,
@@ -329,7 +343,10 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
                     "completed_at": "2027-01-15T08:05:00Z",
                 }
             )
-        jobs_document = {"total_count": 5, "jobs": jobs + [{"id": 9999, "name": "Aggregate"}]}
+        jobs_document = {
+            "total_count": profile.shard_count + 1,
+            "jobs": jobs + [{"id": 9999, "name": "Aggregate"}],
+        }
         if mutate is not None:
             mutate(run_document, jobs_document)
         run_path = root / "run.json"
@@ -345,9 +362,10 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
         mutate_after=None,
         sample_offsets=None,
         mutate_actions=None,
+        profile=aggregate.FOUR_SHARD_PROFILE,
     ):
         source = self.make_source_manifest(root)
-        for shard in range(4):
+        for shard in range(profile.shard_count):
             self.make_shard(
                 root,
                 source,
@@ -355,25 +373,35 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
                 mutate=mutate_shard,
                 mutate_after=mutate_after,
                 sample_offset_ms=None if sample_offsets is None else sample_offsets[shard],
+                profile=profile,
             )
-        jobs_path, run_path = self.make_actions_documents(root, mutate=mutate_actions)
+        jobs_path, run_path = self.make_actions_documents(
+            root, mutate=mutate_actions, profile=profile
+        )
         return jobs_path, run_path
 
-    def run_aggregate(self, root: Path, jobs_path: Path, run_path: Path) -> tuple[int, dict]:
+    def run_aggregate(
+        self,
+        root: Path,
+        jobs_path: Path,
+        run_path: Path,
+        profile=aggregate.FOUR_SHARD_PROFILE,
+    ) -> tuple[int, dict]:
         output = root / "decision" / "distributed-smoke-result.json"
+        arguments = [
+            "--artifacts-root", str(root / "downloads"),
+            "--output", str(output),
+            "--run-id", str(self.run_id),
+            "--run-attempt", str(self.run_attempt),
+            "--repository", self.repository,
+            "--expected-execution-sha", self.execution_sha,
+            "--jobs-json", str(jobs_path),
+            "--run-json", str(run_path),
+        ]
+        if profile.include_profile_field:
+            arguments.extend(("--profile", profile.cli_name))
         with contextlib.redirect_stdout(io.StringIO()):
-            exit_code = aggregate.main(
-                [
-                "--artifacts-root", str(root / "downloads"),
-                "--output", str(output),
-                "--run-id", str(self.run_id),
-                "--run-attempt", str(self.run_attempt),
-                "--repository", self.repository,
-                "--expected-execution-sha", self.execution_sha,
-                "--jobs-json", str(jobs_path),
-                "--run-json", str(run_path),
-                ]
-            )
+            exit_code = aggregate.main(arguments)
         return exit_code, json.loads(output.read_text(encoding="utf-8"))
 
     def test_valid_four_shard_evidence_proves_sixteen_simultaneous_processes(self):
@@ -393,9 +421,78 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
             self.assertEqual(0, result["sentinelEvidence"]["driftCount"])
             self.assertTrue(result["fourWayProcessOverlap"]["proven"])
             self.assertEqual(16, result["fourWayProcessOverlap"]["simultaneousOpenRaProcesses"])
+            self.assertIn("requiredProcessIntervals", result["shards"][0]["resource"])
+            self.assertIn("fourProcessIntervals", result["shards"][0]["resource"])
             self.assertEqual(4, result["actionsEvidence"]["distinctJobIdCount"])
             self.assertEqual(4, result["actionsEvidence"]["distinctRunnerNameCount"])
             self.assertGreater(result["actionsEvidence"]["jobOverlap"]["durationMs"], 0)
+
+    def test_valid_twenty_shard_canary_proves_twenty_one_worker_processes(self):
+        profile = aggregate.TWENTY_SHARD_PROFILE
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            jobs_path, run_path = self.make_bundle(root, profile=profile)
+            exit_code, result = self.run_aggregate(
+                root, jobs_path, run_path, profile=profile
+            )
+
+            self.assertEqual(0, exit_code)
+            self.assertTrue(result["passed"])
+            self.assertEqual(profile.cli_name, result["profile"])
+            self.assertEqual(profile.purpose, result["purpose"])
+            self.assertIn("does not prove 20x4 or 80", result["scopeStatement"])
+            self.assertEqual(20, result["compositeJobCount"])
+            self.assertEqual(20, result["validCompositeJobCount"])
+            self.assertEqual(20, result["replayStrategicLogCount"])
+            self.assertEqual(0, result["replayStrategicLogBytes"])
+            self.assertEqual(19, result["sentinelEvidence"]["comparedValidPairCount"])
+            self.assertEqual(0, result["sentinelEvidence"]["driftCount"])
+            self.assertTrue(result["twentyWayProcessOverlap"]["proven"])
+            self.assertEqual(
+                20,
+                result["twentyWayProcessOverlap"]["simultaneousOpenRaProcesses"],
+            )
+            self.assertIn("requiredProcessIntervals", result["shards"][0]["resource"])
+            self.assertNotIn("fourProcessIntervals", result["shards"][0]["resource"])
+            self.assertEqual(20, result["actionsEvidence"]["distinctJobIdCount"])
+            self.assertEqual(
+                20, result["actionsEvidence"]["distinctRunnerNameCount"]
+            )
+            self.assertGreater(result["actionsEvidence"]["jobOverlap"]["durationMs"], 0)
+
+    def test_twenty_shard_canary_detects_one_valid_sentinel_drift(self):
+        profile = aggregate.TWENTY_SHARD_PROFILE
+        sentinel = prepare.TWENTY_SHARD_PROFILE.sentinels[0].job_id
+
+        def mutate_after(shard, registration_root, evidence_root):
+            if shard != 19:
+                return
+            result_path = evidence_root / "run" / "experiment-result.json"
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            current = result["jobs"][sentinel]["match"]["result"]["finalSyncHash"]
+            result["jobs"][sentinel]["match"]["result"]["finalSyncHash"] = current ^ 1
+            self.write_json(result_path, result)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            jobs_path, run_path = self.make_bundle(
+                root,
+                mutate_after=mutate_after,
+                profile=profile,
+            )
+            exit_code, result = self.run_aggregate(
+                root, jobs_path, run_path, profile=profile
+            )
+
+            self.assertEqual(1, exit_code)
+            self.assertFalse(result["passed"])
+            self.assertEqual(20, result["validCompositeJobCount"])
+            self.assertEqual(19, result["sentinelEvidence"]["comparedValidPairCount"])
+            self.assertEqual(1, result["sentinelEvidence"]["driftCount"])
+            self.assertEqual(
+                ["finalSyncHash"],
+                result["sentinelEvidence"]["drift"][0]["differences"],
+            )
 
     def test_controller_valid_jobs_with_empty_runtime_results_do_not_pass(self):
         def mutate(shard, registration, manifest, result, evidence_root):

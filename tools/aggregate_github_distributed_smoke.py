@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Validate and aggregate the four-runner GitHub distributed smoke evidence."""
+"""Validate and aggregate GitHub distributed-smoke evidence."""
 
 from __future__ import annotations
 
@@ -40,6 +40,82 @@ MAX_SAMPLE_GAP_MS = 2000
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+@dataclass(frozen=True)
+class SmokeProfile:
+    cli_name: str
+    purpose: str
+    shard_count: int
+    jobs_per_shard: int
+    max_workers: int
+    max_world_ticks: int
+    match_timeout_seconds: int
+    verification_timeout_seconds: int
+    sentinel_count: int
+    unique_count: int
+    distinct_derived_job_count: int
+    distinct_source_job_count: int
+    unique_source_job_count: int
+    expected_comparison_count: int
+    overlap_report_key: str
+    overlap_failure_code: str
+    scope_statement: str
+    include_profile_field: bool = False
+
+
+FOUR_SHARD_PROFILE = SmokeProfile(
+    "four-shard-smoke",
+    PURPOSE,
+    SHARD_COUNT,
+    JOBS_PER_SHARD,
+    MAX_WORKERS,
+    MAX_WORLD_TICKS,
+    MATCH_TIMEOUT_SECONDS,
+    VERIFICATION_TIMEOUT_SECONDS,
+    2,
+    2,
+    10,
+    10,
+    8,
+    6,
+    "fourWayProcessOverlap",
+    "four_way_process_overlap_missing",
+    "Proves four GitHub runners each sustaining four OpenRA processes.",
+)
+TWENTY_SHARD_PROFILE = SmokeProfile(
+    "twenty-shard-canary",
+    "GITHUB_RUNNER_TWENTY_SHARD_CANARY",
+    20,
+    1,
+    1,
+    30000,
+    120,
+    90,
+    1,
+    0,
+    1,
+    1,
+    0,
+    19,
+    "twentyWayProcessOverlap",
+    "twenty_way_process_overlap_missing",
+    "Proves twenty GitHub runners each sustaining one OpenRA process; it does not prove 20x4 or 80 simultaneous processes.",
+    True,
+)
+PROFILES = {
+    FOUR_SHARD_PROFILE.cli_name: FOUR_SHARD_PROFILE,
+    TWENTY_SHARD_PROFILE.cli_name: TWENTY_SHARD_PROFILE,
+}
+
+
+def smoke_profile(profile_name: str | None = None) -> SmokeProfile:
+    if profile_name is None:
+        return FOUR_SHARD_PROFILE
+    try:
+        return PROFILES[profile_name]
+    except KeyError as exc:
+        raise ValueError(f"Unknown distributed-smoke profile: {profile_name!r}") from exc
 
 # Keep this in the same order as strategic_ai_runner.calibration_job_evidence.
 DETERMINISTIC_FIELDS = (
@@ -348,6 +424,7 @@ def validate_valid_job_evidence(
     job: dict[str, Any],
     manifest_job: dict[str, Any],
     specification: dict[str, Any] | None,
+    profile: SmokeProfile,
     issues: Issues,
     shard: int,
     job_id: str,
@@ -397,16 +474,16 @@ def validate_valid_job_evidence(
     final_tick = match_result.get("finalWorldTick")
     require(
         "match.finalWorldTick",
-        is_positive_integer(final_tick) and final_tick <= MAX_WORLD_TICKS,
+        is_positive_integer(final_tick) and final_tick <= profile.max_world_ticks,
         final_tick,
-        f"integer in 1..{MAX_WORLD_TICKS}",
+        f"integer in 1..{profile.max_world_ticks}",
     )
     if match_status == "TIMED_OUT":
         require(
             "match.timedOutFinalWorldTick",
-            final_tick == MAX_WORLD_TICKS,
+            final_tick == profile.max_world_ticks,
             final_tick,
-            MAX_WORLD_TICKS,
+            profile.max_world_ticks,
         )
     final_network_frame = match_result.get("finalNetworkFrame")
     require(
@@ -525,9 +602,9 @@ def validate_valid_job_evidence(
     )
     require(
         "verification.scheduledMatchTimeoutTick",
-        verification_result.get("scheduledMatchTimeoutTick") == MAX_WORLD_TICKS,
+        verification_result.get("scheduledMatchTimeoutTick") == profile.max_world_ticks,
         verification_result.get("scheduledMatchTimeoutTick"),
-        MAX_WORLD_TICKS,
+        profile.max_world_ticks,
     )
     require(
         "verification.verificationTimestepMs",
@@ -605,13 +682,16 @@ def _merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def four_process_intervals(samples: list[dict[str, int]]) -> list[tuple[int, int]]:
+def required_process_intervals(
+    samples: list[dict[str, int]],
+    max_workers: int,
+) -> list[tuple[int, int]]:
     intervals = []
     for left, right in zip(samples, samples[1:]):
         gap = right["unix_ms"] - left["unix_ms"]
         if (
-            left["openra_processes"] == MAX_WORKERS
-            and right["openra_processes"] == MAX_WORKERS
+            left["openra_processes"] == max_workers
+            and right["openra_processes"] == max_workers
             and 0 < gap <= MAX_SAMPLE_GAP_MS
         ):
             intervals.append((left["unix_ms"], right["unix_ms"]))
@@ -636,7 +716,12 @@ def intersect_interval_sets(interval_sets: list[list[tuple[int, int]]]) -> list[
     return current
 
 
-def read_resource_samples(path: Path, issues: Issues, shard: int) -> tuple[list[dict[str, int]], dict[str, Any]]:
+def read_resource_samples(
+    path: Path,
+    issues: Issues,
+    shard: int,
+    profile: SmokeProfile,
+) -> tuple[list[dict[str, int]], dict[str, Any]]:
     required = (
         "unix_ms",
         "mem_available_bytes",
@@ -694,8 +779,13 @@ def read_resource_samples(path: Path, issues: Issues, shard: int) -> tuple[list[
     minimum_memory = min(sample["mem_available_bytes"] for sample in samples)
     minimum_disk = min(sample["disk_available_bytes"] for sample in samples)
     maximum_swap = max(sample["swap_used_bytes"] for sample in samples)
+    process_check_name = (
+        "maxOpenRaProcessesExactlyFour"
+        if profile is FOUR_SHARD_PROFILE
+        else "maxOpenRaProcessesExactlyOne"
+    )
     checks = {
-        "maxOpenRaProcessesExactlyFour": maximum_processes == MAX_WORKERS,
+        process_check_name: maximum_processes == profile.max_workers,
         "rssWithinLimit": maximum_rss <= MAX_COMBINED_RSS_BYTES,
         "availableMemoryWithinLimit": minimum_memory >= MIN_AVAILABLE_MEMORY_BYTES,
         "diskWithinLimit": minimum_disk >= MIN_DISK_AVAILABLE_BYTES,
@@ -709,6 +799,10 @@ def read_resource_samples(path: Path, issues: Issues, shard: int) -> tuple[list[
             shard=shard,
             check=name,
         )
+    process_intervals = [
+        {"startUnixMs": start, "endUnixMs": end, "durationMs": end - start}
+        for start, end in required_process_intervals(samples, profile.max_workers)
+    ]
     summary = {
         "sampleCount": len(samples),
         "medianSampleGapMs": median_gap,
@@ -718,12 +812,11 @@ def read_resource_samples(path: Path, issues: Issues, shard: int) -> tuple[list[
         "minAvailableMemoryBytes": minimum_memory,
         "minDiskAvailableBytes": minimum_disk,
         "maxSwapUsedBytes": maximum_swap,
-        "fourProcessIntervals": [
-            {"startUnixMs": start, "endUnixMs": end, "durationMs": end - start}
-            for start, end in four_process_intervals(samples)
-        ],
+        "requiredProcessIntervals": process_intervals,
         "checks": checks,
     }
+    if profile is FOUR_SHARD_PROFILE:
+        summary["fourProcessIntervals"] = process_intervals
     return samples, summary
 
 
@@ -742,6 +835,7 @@ def _expect_equal(
 def validate_shard(
     shard: int,
     extracted_root: Path,
+    profile: SmokeProfile,
     run_id: int,
     run_attempt: int,
     repository: str,
@@ -778,16 +872,16 @@ def validate_shard(
     if registration is not None:
         exact_fields = {
             "schemaVersion": SCHEMA_VERSION,
-            "purpose": PURPOSE,
+            "purpose": profile.purpose,
             "decisionInfluence": "NONE",
             "formalSelection": False,
             "shardIndex": shard,
-            "shardCount": SHARD_COUNT,
-            "maxWorkers": MAX_WORKERS,
-            "jobCount": JOBS_PER_SHARD,
-            "maxWorldTicks": MAX_WORLD_TICKS,
-            "matchTimeoutSeconds": MATCH_TIMEOUT_SECONDS,
-            "verificationTimeoutSeconds": VERIFICATION_TIMEOUT_SECONDS,
+            "shardCount": profile.shard_count,
+            "maxWorkers": profile.max_workers,
+            "jobCount": profile.jobs_per_shard,
+            "maxWorldTicks": profile.max_world_ticks,
+            "matchTimeoutSeconds": profile.match_timeout_seconds,
+            "verificationTimeoutSeconds": profile.verification_timeout_seconds,
             "executionSha": expected_execution_sha,
         }
         for key, expected in exact_fields.items():
@@ -799,6 +893,16 @@ def validate_shard(
                 "Registration field differs from the distributed smoke contract",
                 shard,
                 field=key,
+            )
+        if profile.include_profile_field:
+            _expect_equal(
+                registration.get("profile"),
+                profile.cli_name,
+                issues,
+                "registration_field_mismatch",
+                "Registration profile differs from the requested distributed smoke profile",
+                shard,
+                field="profile",
             )
         issues.check(
             isinstance(registration.get("designBaseSha"), str)
@@ -921,15 +1025,17 @@ def validate_shard(
         else:
             issues.add("unique_registration_invalid", "uniqueJobIds must be a string array", shard=shard)
         issues.check(
-            len(sentinel_ids) == 2 and len(set(sentinel_ids)) == 2,
+            len(sentinel_ids) == profile.sentinel_count
+            and len(set(sentinel_ids)) == profile.sentinel_count,
             "sentinel_registration_invalid",
-            "Each shard must register exactly two distinct sentinels",
+            "Shard sentinel registration differs from the selected profile",
             shard=shard,
         )
         issues.check(
-            len(unique_ids) == 2 and len(set(unique_ids)) == 2,
+            len(unique_ids) == profile.unique_count
+            and len(set(unique_ids)) == profile.unique_count,
             "unique_registration_invalid",
-            "Each shard must register exactly two distinct unique jobs",
+            "Shard unique-job registration differs from the selected profile",
             shard=shard,
         )
         issues.check(
@@ -953,9 +1059,10 @@ def validate_shard(
                 registration_jobs[job_id] = raw_job
             expected_ids = set(sentinel_ids) | set(unique_ids)
             issues.check(
-                len(registration_jobs) == JOBS_PER_SHARD and set(registration_jobs) == expected_ids,
+                len(registration_jobs) == profile.jobs_per_shard
+                and set(registration_jobs) == expected_ids,
                 "registration_job_set_mismatch",
-                "Registration does not contain the exact four role-indexed jobs",
+                f"Registration does not contain the exact {profile.jobs_per_shard} role-indexed jobs",
                 shard=shard,
                 expected=sorted(expected_ids),
                 observed=sorted(registration_jobs),
@@ -1008,11 +1115,11 @@ def validate_shard(
             "Manifest schemaVersion differs from the contract", shard, field="schemaVersion"
         )
         _expect_equal(
-            manifest.get("matchTimeoutSeconds"), MATCH_TIMEOUT_SECONDS, issues, "manifest_field_mismatch",
+            manifest.get("matchTimeoutSeconds"), profile.match_timeout_seconds, issues, "manifest_field_mismatch",
             "Manifest match timeout differs from the contract", shard, field="matchTimeoutSeconds"
         )
         _expect_equal(
-            manifest.get("verificationTimeoutSeconds"), VERIFICATION_TIMEOUT_SECONDS, issues,
+            manifest.get("verificationTimeoutSeconds"), profile.verification_timeout_seconds, issues,
             "manifest_field_mismatch", "Manifest verification timeout differs from the contract", shard,
             field="verificationTimeoutSeconds"
         )
@@ -1029,7 +1136,8 @@ def validate_shard(
                     issues.add("manifest_jobs_duplicate", "Manifest contains a duplicate match", shard=shard, jobId=job_id)
                 manifest_jobs[job_id] = raw_job
         issues.check(
-            len(manifest_jobs) == JOBS_PER_SHARD and set(manifest_jobs) == set(registration_jobs),
+            len(manifest_jobs) == profile.jobs_per_shard
+            and set(manifest_jobs) == set(registration_jobs),
             "manifest_job_set_mismatch",
             "Manifest does not contain the exact registered jobs",
             shard=shard,
@@ -1087,7 +1195,7 @@ def validate_shard(
         specifications_by_job[job_id] = specification
         _expect_equal(
             specification.get("maxWorldTicks"),
-            MAX_WORLD_TICKS,
+            profile.max_world_ticks,
             issues,
             "specification_world_ticks_mismatch",
             "Specification maxWorldTicks differs from the smoke contract",
@@ -1234,7 +1342,7 @@ def validate_shard(
         if source_specification is None:
             continue
         expected_quick_specification = dict(source_specification)
-        expected_quick_specification["maxWorldTicks"] = MAX_WORLD_TICKS
+        expected_quick_specification["maxWorldTicks"] = profile.max_world_ticks
         _expect_equal(
             specification,
             expected_quick_specification,
@@ -1320,7 +1428,9 @@ def validate_shard(
                 jobId=job_id,
             )
 
-    controller_exit_path = evidence_root / "controller-exit-code-workers-4.txt"
+    controller_exit_path = (
+        evidence_root / f"controller-exit-code-workers-{profile.max_workers}.txt"
+    )
     controller_exit: int | None = None
     try:
         controller_exit = int(controller_exit_path.read_text(encoding="utf-8").strip())
@@ -1332,7 +1442,14 @@ def validate_shard(
 
     if result is not None:
         _expect_equal(result.get("status"), "COMPLETED", issues, "result_status_invalid", "Shard result is not COMPLETED", shard)
-        _expect_equal(result.get("maxWorkers"), MAX_WORKERS, issues, "result_workers_invalid", "Shard did not record maxWorkers=4", shard)
+        _expect_equal(
+            result.get("maxWorkers"),
+            profile.max_workers,
+            issues,
+            "result_workers_invalid",
+            "Shard did not record the profile maxWorkers value",
+            shard,
+        )
         expected_manifest_sha = registration.get("manifestSha256") if registration else None
         _expect_equal(result.get("manifestSha256"), expected_manifest_sha, issues, "result_manifest_sha_mismatch", "Result manifest SHA-256 differs from registration", shard)
 
@@ -1341,9 +1458,9 @@ def validate_shard(
             issues.add("controller_provenance_invalid", "Controller provenance is missing", shard=shard)
         else:
             expected_provenance = {
-                "expectedJobCount": JOBS_PER_SHARD,
-                "recordedJobCount": JOBS_PER_SHARD,
-                "attributedJobCount": JOBS_PER_SHARD,
+                "expectedJobCount": profile.jobs_per_shard,
+                "recordedJobCount": profile.jobs_per_shard,
+                "attributedJobCount": profile.jobs_per_shard,
                 "legacyCoverageGap": False,
                 "unattributedJobIds": [],
                 "invalidAttributionJobIds": [],
@@ -1373,7 +1490,8 @@ def validate_shard(
             if len(result_jobs) != len(raw_result_jobs):
                 issues.add("result_jobs_invalid", "Result contains a malformed job entry", shard=shard)
         issues.check(
-            len(result_jobs) == JOBS_PER_SHARD and set(result_jobs) == set(registration_jobs),
+            len(result_jobs) == profile.jobs_per_shard
+            and set(result_jobs) == set(registration_jobs),
             "result_job_set_mismatch",
             "Result does not contain the exact registered jobs",
             shard=shard,
@@ -1406,6 +1524,7 @@ def validate_shard(
                     job,
                     manifest_jobs.get(job_id, {}),
                     specifications_by_job.get(job_id),
+                    profile,
                     issues,
                     shard,
                     job_id,
@@ -1448,7 +1567,7 @@ def validate_shard(
         except (ValueError, IndexError):
             continue
     issues.check(
-        len(replay_logs) == JOBS_PER_SHARD
+        len(replay_logs) == profile.jobs_per_shard
         and set(replay_by_job) == expected_log_jobs
         and all(len(paths) == 1 for paths in replay_by_job.values()),
         "replay_log_set_mismatch",
@@ -1472,10 +1591,23 @@ def validate_shard(
     )
 
     samples, resource_summary = read_resource_samples(
-        evidence_root / "resource-samples-workers-4.csv", issues, shard
+        evidence_root / f"resource-samples-workers-{profile.max_workers}.csv",
+        issues,
+        shard,
+        profile,
     )
-    before = read_memory_events(evidence_root / "memory-events-before-workers-4.txt", issues, shard, "before")
-    after = read_memory_events(evidence_root / "memory-events-after-workers-4.txt", issues, shard, "after")
+    before = read_memory_events(
+        evidence_root / f"memory-events-before-workers-{profile.max_workers}.txt",
+        issues,
+        shard,
+        "before",
+    )
+    after = read_memory_events(
+        evidence_root / f"memory-events-after-workers-{profile.max_workers}.txt",
+        issues,
+        shard,
+        "after",
+    )
     oom_delta = after.get("oom", 0) - before.get("oom", 0)
     oom_kill_delta = after.get("oom_kill", 0) - before.get("oom_kill", 0)
     required_oom_counters = {"oom", "oom_kill"}
@@ -1488,7 +1620,7 @@ def validate_shard(
     issues.check(no_oom, "oom_detected", "OOM counters changed or are incomplete", shard=shard, oomDelta=oom_delta, oomKillDelta=oom_kill_delta)
     resource_summary.update({"oomDelta": oom_delta, "oomKillDelta": oom_kill_delta, "noOom": no_oom})
 
-    time_path = evidence_root / "workers-4-time.txt"
+    time_path = evidence_root / f"workers-{profile.max_workers}-time.txt"
     issues.check(
         time_path.is_file() and time_path.stat().st_size > 0,
         "wall_time_evidence_missing",
@@ -1506,7 +1638,7 @@ def validate_shard(
             "GITHUB_SHA": expected_execution_sha,
             "gitHeadSha": expected_execution_sha,
             "SHARD_INDEX": str(shard),
-            "maxWorkers": str(MAX_WORKERS),
+            "maxWorkers": str(profile.max_workers),
         }
         for key, expected in metadata_expectations.items():
             _expect_equal(
@@ -1543,13 +1675,17 @@ def validate_shard(
     return summary
 
 
-def validate_cross_shard(shards: list[dict[str, Any]], issues: Issues) -> dict[str, Any]:
+def validate_cross_shard(
+    shards: list[dict[str, Any]],
+    profile: SmokeProfile,
+    issues: Issues,
+) -> dict[str, Any]:
     registrations = [item.get("registration") for item in shards]
     available = [item for item in shards if isinstance(item.get("registration"), dict)]
     issues.check(
-        len(available) == SHARD_COUNT,
+        len(available) == profile.shard_count,
         "registration_count_mismatch",
-        "Exactly four valid shard registrations are required",
+        "The selected profile requires one valid registration per shard",
         observed=len(available),
     )
 
@@ -1600,27 +1736,29 @@ def validate_cross_shard(shards: list[dict[str, Any]], issues: Issues) -> dict[s
                     unique_source_ids.append(source_job_id)
 
     issues.check(
-        len(composite_ids) == SHARD_COUNT * JOBS_PER_SHARD and len(set(composite_ids)) == len(composite_ids),
+        len(composite_ids) == profile.shard_count * profile.jobs_per_shard
+        and len(set(composite_ids)) == len(composite_ids),
         "composite_job_count_mismatch",
-        "Distributed smoke must contain exactly 16 distinct composite jobs",
+        "Composite job count differs from the selected distributed smoke profile",
         observed=len(composite_ids),
     )
     issues.check(
-        len(derived_ids) == 10,
+        len(derived_ids) == profile.distinct_derived_job_count,
         "derived_job_identity_mismatch",
-        "Distributed smoke must contain two shared sentinel IDs and eight unique IDs",
+        "Derived job identity count differs from the selected profile",
         observed=len(derived_ids),
     )
     issues.check(
-        len(source_ids) == 10,
+        len(source_ids) == profile.distinct_source_job_count,
         "source_job_identity_mismatch",
-        "Distributed smoke must bind exactly ten distinct source jobs",
+        "Source job identity count differs from the selected profile",
         observed=len(source_ids),
     )
     issues.check(
-        len(unique_source_ids) == 8 and len(set(unique_source_ids)) == 8,
+        len(unique_source_ids) == profile.unique_source_job_count
+        and len(set(unique_source_ids)) == profile.unique_source_job_count,
         "unique_source_job_overlap",
-        "Unique jobs must bind eight distinct source job IDs",
+        f"Unique jobs must bind {profile.unique_source_job_count} distinct source job IDs",
         observed=len(set(unique_source_ids)),
     )
     for job_id, sources in sentinel_source_by_id.items():
@@ -1638,13 +1776,13 @@ def validate_cross_shard(shards: list[dict[str, Any]], issues: Issues) -> dict[s
     missing: list[dict[str, Any]] = []
     not_comparable: list[dict[str, Any]] = []
     drift: list[dict[str, Any]] = []
-    if len(baseline_sentinels) != 2:
+    if len(baseline_sentinels) != profile.sentinel_count:
         issues.add(
             "sentinel_baseline_invalid",
-            "Shard zero does not provide the two-sentinel comparison baseline",
+            "Shard zero does not provide the profile sentinel comparison baseline",
         )
     shards_by_index = {item["shard"]: item for item in shards}
-    for candidate_shard in range(1, SHARD_COUNT):
+    for candidate_shard in range(1, profile.shard_count):
         item = shards_by_index.get(
             candidate_shard,
             {"shard": candidate_shard, "sentinelJobIds": [], "resultJobs": {}},
@@ -1749,9 +1887,9 @@ def validate_cross_shard(shards: list[dict[str, Any]], issues: Issues) -> dict[s
             count=len(drift),
         )
     issues.check(
-        len(comparisons) == 6,
+        len(comparisons) == profile.expected_comparison_count,
         "sentinel_comparison_count_mismatch",
-        "The two sentinels must produce six baseline-to-shard comparisons",
+        "Sentinel comparison count differs from the selected profile",
         observed=len(comparisons),
     )
 
@@ -1762,7 +1900,7 @@ def validate_cross_shard(shards: list[dict[str, Any]], issues: Issues) -> dict[s
         "distinctSourceJobCount": len(source_ids),
         "sentinelEvidence": {
             "baselineShard": 0,
-            "expectedComparisonCount": 6,
+            "expectedComparisonCount": profile.expected_comparison_count,
             "comparisonCount": len(comparisons),
             "comparedValidPairCount": sum(item["compared"] for item in comparisons),
             "missingCount": len(missing),
@@ -1847,17 +1985,18 @@ def load_actions_documents(
     return jobs_document, run_document
 
 
-def infer_job_shard(name: object) -> int | None:
+def infer_job_shard(name: object, profile: SmokeProfile) -> int | None:
     if not isinstance(name, str):
         return None
     patterns = (
-        r"(?i)(?:^|[^a-z0-9])shard[\s_:#/\-]*(?P<index>[0-3])(?:$|[^0-9])",
-        r"\(\s*(?P<index>[0-3])\s*\)\s*$",
+        r"(?i)(?:^|[^a-z0-9])shard[\s_:#/\-]*(?P<index>[0-9]+)(?:$|[^0-9])",
+        r"\(\s*(?P<index>[0-9]+)\s*\)\s*$",
     )
     for pattern in patterns:
         match = re.search(pattern, name)
         if match is not None:
-            return int(match.group("index"))
+            shard = int(match.group("index"))
+            return shard if 0 <= shard < profile.shard_count else None
     return None
 
 
@@ -1869,6 +2008,7 @@ def validate_actions_evidence(
     run_id: int,
     run_attempt: int,
     expected_execution_sha: str,
+    profile: SmokeProfile,
     issues: Issues,
 ) -> dict[str, Any]:
     summary: dict[str, Any] = {
@@ -1906,21 +2046,23 @@ def validate_actions_evidence(
     if not isinstance(raw_jobs, list):
         issues.add("actions_jobs_document_invalid", "Actions jobs document lacks a jobs array")
         return summary
-    by_shard: dict[int, list[dict[str, Any]]] = {index: [] for index in range(SHARD_COUNT)}
+    by_shard: dict[int, list[dict[str, Any]]] = {
+        index: [] for index in range(profile.shard_count)
+    }
     for raw_job in raw_jobs:
         if not isinstance(raw_job, dict):
             continue
-        shard = infer_job_shard(raw_job.get("name"))
+        shard = infer_job_shard(raw_job.get("name"), profile)
         if shard is not None:
             by_shard[shard].append(raw_job)
 
     selected: list[tuple[int, dict[str, Any]]] = []
-    for shard in range(SHARD_COUNT):
+    for shard in range(profile.shard_count):
         candidates = by_shard[shard]
         if len(candidates) != 1:
             issues.add(
                 "actions_shard_job_count_mismatch",
-                "Actions jobs document must contain exactly one job for each shard",
+                "Actions jobs document must contain exactly one job for each profile shard",
                 shard=shard,
                 observed=len(candidates),
             )
@@ -1999,20 +2141,23 @@ def validate_actions_evidence(
     distinct_job_ids = len(set(job_ids))
     distinct_runner_names = len(set(runner_names))
     issues.check(
-        len(job_ids) == SHARD_COUNT and distinct_job_ids == SHARD_COUNT and all(job_id is not None for job_id in job_ids),
+        len(job_ids) == profile.shard_count
+        and distinct_job_ids == profile.shard_count
+        and all(job_id is not None for job_id in job_ids),
         "actions_job_ids_not_distinct",
-        "Four distinct Actions job IDs are required",
+        "The selected profile requires a distinct Actions job ID per shard",
         observed=distinct_job_ids,
     )
     issues.check(
-        len(runner_names) == SHARD_COUNT and distinct_runner_names == SHARD_COUNT,
+        len(runner_names) == profile.shard_count
+        and distinct_runner_names == profile.shard_count,
         "actions_runner_names_not_distinct",
-        "Four distinct Actions runner names are required",
+        "The selected profile requires a distinct Actions runner name per shard",
         observed=distinct_runner_names,
     )
 
     overlap = None
-    if len(starts) == SHARD_COUNT and len(ends) == SHARD_COUNT:
+    if len(starts) == profile.shard_count and len(ends) == profile.shard_count:
         overlap_start = max(starts)
         overlap_end = min(ends)
         duration_ms = int((overlap_end - overlap_start).total_seconds() * 1000)
@@ -2025,12 +2170,12 @@ def validate_actions_evidence(
         else:
             issues.add(
                 "actions_jobs_do_not_overlap",
-                "The four shard jobs have no common execution interval",
+                "The profile shard jobs have no common execution interval",
             )
     else:
         issues.add(
             "actions_jobs_do_not_overlap",
-            "Complete timestamps for four shard jobs are required to prove overlap",
+            "Complete timestamps for every profile shard job are required to prove overlap",
         )
 
     summary.update(
@@ -2053,14 +2198,18 @@ def aggregate_distributed_smoke(
     repository: str,
     expected_execution_sha: str,
     *,
+    profile_name: str | None = None,
     jobs_json: Path | None = None,
     run_json: Path | None = None,
     token: str | None = None,
 ) -> dict[str, Any]:
+    profile = smoke_profile(profile_name)
     issues = Issues()
     report: dict[str, Any] = {
         "schemaVersion": SCHEMA_VERSION,
-        "purpose": PURPOSE,
+        "purpose": profile.purpose,
+        "profile": profile.cli_name,
+        "scopeStatement": profile.scope_statement,
         "decisionInfluence": "NONE",
         "formalSelection": False,
         "runId": run_id,
@@ -2093,7 +2242,9 @@ def aggregate_distributed_smoke(
 
         archives_by_shard: dict[int, Path] = {}
         all_archives = list(artifacts_root.rglob("*.tar.gz")) if artifacts_root.is_dir() else []
-        canonical_names = {f"shard-{shard}.tar.gz" for shard in range(SHARD_COUNT)}
+        canonical_names = {
+            f"shard-{shard}.tar.gz" for shard in range(profile.shard_count)
+        }
         unexpected = sorted(path.name for path in all_archives if path.name not in canonical_names)
         if unexpected:
             issues.add(
@@ -2101,7 +2252,7 @@ def aggregate_distributed_smoke(
                 "Downloaded artifact root contains an unexpected tar archive",
                 archives=unexpected,
             )
-        for shard in range(SHARD_COUNT):
+        for shard in range(profile.shard_count):
             matches = [path for path in all_archives if path.name == f"shard-{shard}.tar.gz"]
             if len(matches) != 1:
                 issues.add(
@@ -2113,14 +2264,14 @@ def aggregate_distributed_smoke(
             else:
                 archives_by_shard[shard] = matches[0]
         issues.check(
-            len(all_archives) == SHARD_COUNT,
+            len(all_archives) == profile.shard_count,
             "archive_count_mismatch",
-            "Downloaded artifact root must contain exactly four shard tar files",
+            "Downloaded artifact root must contain exactly one tar per profile shard",
             observed=len(all_archives),
         )
         parent_directories = {path.parent.resolve() for path in archives_by_shard.values()}
         issues.check(
-            len(parent_directories) == SHARD_COUNT,
+            len(parent_directories) == profile.shard_count,
             "artifact_directories_not_independent",
             "Each shard tar must come from its own download-artifact directory",
             observed=len(parent_directories),
@@ -2130,7 +2281,7 @@ def aggregate_distributed_smoke(
         shards: list[dict[str, Any]] = []
         with tempfile.TemporaryDirectory(prefix="openra-distributed-smoke-") as temporary:
             extraction_root = Path(temporary)
-            for shard in range(SHARD_COUNT):
+            for shard in range(profile.shard_count):
                 archive = archives_by_shard.get(shard)
                 if archive is None:
                     continue
@@ -2154,6 +2305,7 @@ def aggregate_distributed_smoke(
                 shard_summary = validate_shard(
                     shard,
                     destination,
+                    profile,
                     run_id,
                     run_attempt,
                     repository,
@@ -2164,22 +2316,33 @@ def aggregate_distributed_smoke(
                 shards.append(shard_summary)
 
             issues.check(
-                len(shards) == SHARD_COUNT,
+                len(shards) == profile.shard_count,
                 "extracted_shard_count_mismatch",
-                "Exactly four safely extracted shard evidence sets are required",
+                "Exactly one safely extracted evidence set is required per profile shard",
                 observed=len(shards),
             )
-            cross_summary = validate_cross_shard(shards, issues)
+            cross_summary = validate_cross_shard(shards, profile, issues)
 
             interval_sets = []
             for item in sorted(shards, key=lambda value: value["shard"]):
-                interval_sets.append(four_process_intervals(item.get("samples", [])))
-            process_overlaps = intersect_interval_sets(interval_sets) if len(interval_sets) == SHARD_COUNT else []
+                interval_sets.append(
+                    required_process_intervals(
+                        item.get("samples", []),
+                        profile.max_workers,
+                    )
+                )
+            process_overlaps = (
+                intersect_interval_sets(interval_sets)
+                if len(interval_sets) == profile.shard_count
+                else []
+            )
             if process_overlaps:
                 longest = max(process_overlaps, key=lambda pair: pair[1] - pair[0])
                 process_overlap_summary = {
                     "proven": True,
-                    "simultaneousOpenRaProcesses": SHARD_COUNT * MAX_WORKERS,
+                    "simultaneousOpenRaProcesses": (
+                        profile.shard_count * profile.max_workers
+                    ),
                     "startUnixMs": longest[0],
                     "endUnixMs": longest[1],
                     "durationMs": longest[1] - longest[0],
@@ -2190,8 +2353,8 @@ def aggregate_distributed_smoke(
                 }
             else:
                 issues.add(
-                    "four_way_process_overlap_missing",
-                    "The 0.2-second samples do not prove four simultaneous four-process intervals",
+                    profile.overlap_failure_code,
+                    "The 0.2-second samples do not prove simultaneous profile process intervals",
                 )
                 process_overlap_summary = {
                     "proven": False,
@@ -2216,6 +2379,7 @@ def aggregate_distributed_smoke(
                 run_id,
                 run_attempt,
                 expected_execution_sha,
+                profile,
                 issues,
             )
 
@@ -2233,7 +2397,7 @@ def aggregate_distributed_smoke(
                     "archiveAudits": sorted(archive_audits, key=lambda item: item["shard"]),
                     "shards": public_shards,
                     **cross_summary,
-                    "fourWayProcessOverlap": process_overlap_summary,
+                    profile.overlap_report_key: process_overlap_summary,
                     "actionsEvidence": actions_summary,
                     "validCompositeJobCount": sum(item.get("validJobCount", 0) for item in shards),
                     "timedOutProcessCount": sum(item.get("timedOutProcessCount", 0) for item in shards),
@@ -2264,6 +2428,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run-attempt", type=int, required=True)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--expected-execution-sha", required=True)
+    parser.add_argument("--profile", choices=sorted(PROFILES))
     parser.add_argument("--jobs-json", type=Path)
     parser.add_argument("--run-json", type=Path)
     args = parser.parse_args(argv)
@@ -2274,6 +2439,7 @@ def main(argv: list[str] | None = None) -> int:
         args.run_attempt,
         args.repository,
         args.expected_execution_sha.lower(),
+        profile_name=args.profile,
         jobs_json=args.jobs_json,
         run_json=args.run_json,
         token=os.environ.get("GITHUB_TOKEN"),

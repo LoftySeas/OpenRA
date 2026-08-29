@@ -197,6 +197,101 @@ class PrepareGithubDistributedSmokeTests(unittest.TestCase):
             self.assertEqual(2, len(sentinel_hashes))
             self.assertTrue(all(len(values) == 1 for values in sentinel_hashes.values()))
 
+    def test_materializes_twenty_one_worker_shards_with_one_shared_sentinel(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_manifest, controller, _ = self.create_source(root)
+            profile = distributed_smoke.TWENTY_SHARD_PROFILE
+            composite_ids = []
+            source_ids = set()
+            specification_hashes = set()
+
+            for shard in range(profile.shard_count):
+                output = root / f"canary-{shard}"
+                manifest_path = distributed_smoke.prepare(
+                    source_manifest,
+                    output,
+                    shard,
+                    controller,
+                    EXECUTION_SHA,
+                    DESIGN_BASE_SHA,
+                    profile.cli_name,
+                )
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                registration = json.loads(
+                    (output / "github-distributed-smoke-registration.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+
+                self.assertEqual(profile.cli_name, registration["profile"])
+                self.assertEqual(profile.purpose, registration["purpose"])
+                self.assertEqual(20, registration["shardCount"])
+                self.assertEqual(1, registration["maxWorkers"])
+                self.assertEqual(1, registration["jobCount"])
+                self.assertEqual(30000, registration["maxWorldTicks"])
+                self.assertEqual(120, registration["matchTimeoutSeconds"])
+                self.assertEqual(90, registration["verificationTimeoutSeconds"])
+                self.assertEqual([], registration["uniqueJobIds"])
+                self.assertEqual(
+                    ["canary-sentinel-ore-lord-normal-c40"],
+                    registration["sentinelJobIds"],
+                )
+                self.assertEqual(1, len(manifest["matches"]))
+                self.assertEqual(120, manifest["matchTimeoutSeconds"])
+                self.assertEqual(90, manifest["verificationTimeoutSeconds"])
+
+                provenance = registration["jobs"][0]
+                source_ids.add(provenance["sourceJobId"])
+                specification_hashes.add(provenance["specificationSha256"])
+                composite_ids.append(f"shard-{shard}/{provenance['id']}")
+                specification = json.loads(
+                    (output / provenance["specificationPath"]).read_text(encoding="utf-8")
+                )
+                self.assertEqual(30000, specification["maxWorldTicks"])
+
+            self.assertEqual(20, len(composite_ids))
+            self.assertEqual(20, len(set(composite_ids)))
+            self.assertEqual({"tr-ore-lord-normal-s01-c40-r0"}, source_ids)
+            self.assertEqual(1, len(specification_hashes))
+
+            with self.assertRaisesRegex(ValueError, "range 0..19"):
+                distributed_smoke.prepare(
+                    source_manifest,
+                    root / "invalid-canary",
+                    20,
+                    controller,
+                    EXECUTION_SHA,
+                    DESIGN_BASE_SHA,
+                    profile.cli_name,
+                )
+
+    def test_twenty_shard_workflow_registers_one_worker_and_common_release(self):
+        workflow = (
+            Path(__file__).resolve().parents[2]
+            / ".github"
+            / "workflows"
+            / "strategic-ai-github-twenty-shard-canary.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("max-parallel: 20", workflow)
+        self.assertIn(
+            "shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]",
+            workflow,
+        )
+        self.assertEqual(2, workflow.count("--profile twenty-shard-canary"))
+        self.assertIn("tools/run_github_quick_tier.sh 1", workflow)
+        self.assertNotIn("tools/run_github_quick_tier.sh 4", workflow)
+        self.assertIn('value["maxWorkers"] = 1', workflow)
+        self.assertIn("for shard in range(20)", workflow)
+        self.assertIn("time.sleep(30)", workflow)
+        self.assertNotIn("time.sleep(2)", workflow)
+        self.assertNotIn("time.sleep(20)", workflow)
+        self.assertIn("max(created.values()) + datetime.timedelta(seconds=60)", workflow)
+        self.assertIn('"pollIntervalSeconds": 30', workflow)
+        self.assertIn('"releaseDelaySeconds": 60', workflow)
+        self.assertIn('"releaseAtUtc": release_at.isoformat()', workflow)
+
     def test_rejects_invalid_shard_sha_missing_source_and_output_drift(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
