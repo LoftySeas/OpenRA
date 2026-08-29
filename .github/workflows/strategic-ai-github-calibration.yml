@@ -1,18 +1,18 @@
-name: Strategic AI GitHub Runner Calibration
+name: Strategic AI GitHub Runner Concurrency Screen
 
 on:
   workflow_dispatch:
   push:
-    branches: [ 'codex/strategic-ai-github-calibration' ]
+    branches: [ 'codex/strategic-ai-github-five-minute-probe' ]
 
 permissions:
   contents: read
 
 jobs:
   calibrate:
-    name: Ubuntu 1/2/4/5 worker calibration
+    name: Ubuntu 1/2/4/5 worker five-job screen
     runs-on: ubuntu-22.04
-    timeout-minutes: 350
+    timeout-minutes: 90
     env:
       SDL_AUDIODRIVER: dummy
       LIBGL_ALWAYS_SOFTWARE: '1'
@@ -40,7 +40,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/strategic-ai-content"
           python3 tools/prepare_ra_content.py --support-dir "$RUNNER_TEMP/strategic-ai-content"
 
-      - name: Materialize the frozen 20-job calibration
+      - name: Materialize the frozen five-job screen
         run: |
           python3 tools/prepare_m3_experiment.py \
             --plan docs/ai/examples/m3-experiment-plan.json \
@@ -49,6 +49,45 @@ jobs:
           python3 tools/prepare_github_runner_calibration.py \
             --source-manifest "$RUNNER_TEMP/m3-calibration-registration/experiment-manifest.json" \
             --output-manifest "$RUNNER_TEMP/m3-calibration-registration/github-calibration-manifest.json"
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "m3-calibration-registration"
+          source_path = root / "github-calibration-manifest.json"
+          output_path = root / "github-screening-manifest.json"
+          wanted = (
+              "tr-ore-lord-normal-s01-c20-r0",
+              "tr-ore-lord-rush-s07-c30-r0",
+              "tr-behind-the-veil-normal-s03-c40-r0",
+              "tr-behind-the-veil-rush-s09-c50-r0",
+              "tr-siberian-pass-normal-s05-c60-r0",
+          )
+          source = json.loads(source_path.read_text(encoding="utf-8"))
+          by_id = {match["id"]: match for match in source["matches"]}
+          missing = [job_id for job_id in wanted if job_id not in by_id]
+          if missing:
+              raise SystemExit(f"Screening manifest lacks jobs: {missing!r}")
+          value = dict(source)
+          value["matches"] = [by_id[job_id] for job_id in wanted]
+          output_path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          registration = {
+              "schemaVersion": "1.0.0",
+              "decisionInfluence": "NONE",
+              "purpose": "GITHUB_RUNNER_CONCURRENCY_SCREEN",
+              "sourceManifestSha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+              "screeningManifestSha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
+              "jobCount": len(wanted),
+              "jobIds": list(wanted),
+          }
+          (root / "github-screening-registration.json").write_text(
+              json.dumps(registration, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
 
       - name: Capture runner identity
         run: |
@@ -87,7 +126,7 @@ jobs:
           /usr/bin/time -v -o "$root/calibration-time.txt" \
             xvfb-run -a -s "-screen 0 1024x768x24" \
               python3 tools/strategic_ai_runner.py calibrate \
-                --manifest "$RUNNER_TEMP/m3-calibration-registration/github-calibration-manifest.json" \
+                --manifest "$RUNNER_TEMP/m3-calibration-registration/github-screening-manifest.json" \
                 --output-root "$root" \
                 --content-dir "$RUNNER_TEMP/strategic-ai-content/Content" \
                 --engine-dir "$GITHUB_WORKSPACE" \
@@ -130,8 +169,8 @@ jobs:
           runs = decision.get("runs") or []
           if [run.get("workers") for run in runs] != expected:
               raise SystemExit("Calibration summaries are incomplete")
-          if any(run.get("jobCount") != 20 for run in runs):
-              raise SystemExit("A calibration run does not contain all 20 jobs")
+          if any(run.get("jobCount") != 5 for run in runs):
+              raise SystemExit("A screening run does not contain all five jobs")
           equivalence = decision.get("crossRunEquivalence") or {}
           if equivalence.get("workerCounts") != expected:
               raise SystemExit("Cross-run equivalence evidence is incomplete")
@@ -161,7 +200,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-github-runner-calibration-${{ github.run_attempt }}
+          name: strategic-ai-github-runner-concurrency-screen-${{ github.run_attempt }}
           path: ${{ runner.temp }}/strategic-ai-calibration-evidence/github-runner-calibration.tar.gz
           if-no-files-found: error
           retention-days: 1
