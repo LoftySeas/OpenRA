@@ -104,6 +104,11 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
         if numeric >= 2**31:
             numeric -= 2**32
         replay_sha = aggregate.hashlib.sha256((identity + "-replay").encode()).hexdigest()
+        synchronized_timeout = job_id == prepare.UNIQUE_BY_SHARD[2][1].job_id
+        match_status = "TIMED_OUT" if synchronized_timeout else "COMPLETED"
+        match_exit_code = 4 if synchronized_timeout else 0
+        final_world_tick = aggregate.MAX_WORLD_TICKS if synchronized_timeout else 25000
+        player_outcomes = ("UNDEFINED", "UNDEFINED") if synchronized_timeout else ("WON", "LOST")
         return {
             "id": job_id,
             "attempt": 1,
@@ -115,20 +120,20 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
             "controllerExecutionId": None,
             "controllerScriptSha256": None,
             "match": {
-                "exitCode": 0,
+                "exitCode": match_exit_code,
                 "timedOut": False,
                 "elapsedSeconds": 1.25,
                 "result": {
-                    "status": "COMPLETED",
+                    "status": match_status,
                     "executionMode": "UNCAPPED",
-                    "finalWorldTick": 25000,
+                    "finalWorldTick": final_world_tick,
                     "finalNetworkFrame": 1500,
                     "finalSyncHash": numeric,
                     "orderDigestSha256": aggregate.hashlib.sha256((identity + "-orders").encode()).hexdigest(),
                     "strategicDecisionDigestSha256": aggregate.hashlib.sha256((identity + "-decisions").encode()).hexdigest(),
                     "players": [
-                        {"botType": "strategic", "outcome": "WON", "slot": "Multi0"},
-                        {"botType": "normal", "outcome": "LOST", "slot": "Multi1"},
+                        {"botType": "strategic", "outcome": player_outcomes[0], "slot": "Multi0"},
+                        {"botType": "normal", "outcome": player_outcomes[1], "slot": "Multi1"},
                     ],
                     "candidateId": manifest_job["expectedCandidateId"],
                     "candidateSha256": manifest_job["expectedCandidateSha256"],
@@ -147,8 +152,8 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
                 "elapsedSeconds": 0.75,
                 "result": {
                     "status": "VERIFIED",
-                    "recordedFinalWorldTick": 25000,
-                    "observedFinalWorldTick": 25000,
+                    "recordedFinalWorldTick": final_world_tick,
+                    "observedFinalWorldTick": final_world_tick,
                     "finalNetworkFrame": 1500,
                     "lastValidatedSyncFrame": 1498,
                     "outOfSyncFrame": None,
@@ -412,6 +417,28 @@ class AggregateGithubDistributedSmokeTest(unittest.TestCase):
                 "job_runtime_evidence_invalid",
                 {item["code"] for item in result["failures"]},
             )
+
+    def test_last_validated_sync_frame_is_required_but_not_a_cross_runner_digest(self):
+        sentinel = prepare.SENTINELS[0].job_id
+
+        def mutate_after(shard, registration_root, evidence_root):
+            if shard == 2:
+                result_path = evidence_root / "run" / "experiment-result.json"
+                result = json.loads(result_path.read_text(encoding="utf-8"))
+                result["jobs"][sentinel]["verification"]["result"][
+                    "lastValidatedSyncFrame"
+                ] -= 1
+                self.write_json(result_path, result)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            jobs_path, run_path = self.make_bundle(root, mutate_after=mutate_after)
+            exit_code, result = self.run_aggregate(root, jobs_path, run_path)
+
+            self.assertEqual(0, exit_code)
+            self.assertTrue(result["passed"])
+            self.assertEqual(6, result["sentinelEvidence"]["comparedValidPairCount"])
+            self.assertEqual(0, result["sentinelEvidence"]["driftCount"])
 
     def test_source_manifest_and_source_job_sha_tampering_do_not_pass(self):
         def mutate(shard, registration, manifest, result, evidence_root):

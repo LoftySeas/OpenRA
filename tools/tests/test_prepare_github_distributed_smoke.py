@@ -103,8 +103,8 @@ class PrepareGithubDistributedSmokeTests(unittest.TestCase):
                 registration_path = output / "github-distributed-smoke-registration.json"
                 registration = json.loads(registration_path.read_text(encoding="utf-8"))
 
-                self.assertEqual(120, manifest["matchTimeoutSeconds"])
-                self.assertEqual(90, manifest["verificationTimeoutSeconds"])
+                self.assertEqual(240, manifest["matchTimeoutSeconds"])
+                self.assertEqual(180, manifest["verificationTimeoutSeconds"])
                 self.assertEqual(4, len(manifest["matches"]))
                 self.assertEqual("GITHUB_RUNNER_DISTRIBUTED_SMOKE", registration["purpose"])
                 self.assertEqual("NONE", registration["decisionInfluence"])

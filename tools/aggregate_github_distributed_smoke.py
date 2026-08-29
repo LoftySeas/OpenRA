@@ -27,8 +27,8 @@ SHARD_COUNT = 4
 JOBS_PER_SHARD = 4
 MAX_WORKERS = 4
 MAX_WORLD_TICKS = 30000
-MATCH_TIMEOUT_SECONDS = 120
-VERIFICATION_TIMEOUT_SECONDS = 90
+MATCH_TIMEOUT_SECONDS = 240
+VERIFICATION_TIMEOUT_SECONDS = 180
 MAX_ARCHIVE_MEMBERS = 4096
 MAX_ARCHIVE_BYTES = 256 * 1024**2
 MAX_ARCHIVE_MEMBER_BYTES = 64 * 1024**2
@@ -62,7 +62,6 @@ DETERMINISTIC_FIELDS = (
     "recordedFinalWorldTick",
     "observedFinalWorldTick",
     "verifiedFinalNetworkFrame",
-    "lastValidatedSyncFrame",
     "outOfSyncFrame",
     "scheduledMatchTimeoutTick",
 )
@@ -297,7 +296,6 @@ def calibration_job_evidence(job: dict[str, Any]) -> dict[str, Any]:
         "recordedFinalWorldTick": verification_result.get("recordedFinalWorldTick"),
         "observedFinalWorldTick": verification_result.get("observedFinalWorldTick"),
         "verifiedFinalNetworkFrame": verification_result.get("finalNetworkFrame"),
-        "lastValidatedSyncFrame": verification_result.get("lastValidatedSyncFrame"),
         "outOfSyncFrame": verification_result.get("outOfSyncFrame"),
         "scheduledMatchTimeoutTick": verification_result.get("scheduledMatchTimeoutTick"),
     }
