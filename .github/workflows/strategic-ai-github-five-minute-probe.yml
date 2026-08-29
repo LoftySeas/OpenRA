@@ -51,6 +51,7 @@ jobs:
 
           path = Path(os.environ["RUNNER_TEMP"]) / "five-minute-probe-input" / "match.json"
           value = json.loads(path.read_text(encoding="utf-8"))
+          value["schemaVersion"] = "1.2.0"
           value["maxWorldTicks"] = 90000
           value["executionMode"] = "UNCAPPED"
           value["candidatePath"] = "m3-candidate-baseline.json"
@@ -139,7 +140,14 @@ jobs:
                   })
 
           specification_value = json.loads(specification.read_text(encoding="utf-8"))
-          exact_tick = None if match_result is None else match_result.get("finalWorldTick")
+          exact_tick = None
+          if (
+              match_result is not None
+              and match_result.get("status") in {"COMPLETED", "TIMED_OUT"}
+              and isinstance(match_result.get("finalWorldTick"), int)
+              and match_result["finalWorldTick"] > 0
+          ):
+              exact_tick = match_result["finalWorldTick"]
           last_observed_tick = max(decision_ticks) if decision_ticks else None
           tick_evidence = "EXACT_FINAL_TICK" if isinstance(exact_tick, int) else (
               "STRATEGIC_LOG_LOWER_BOUND" if last_observed_tick is not None else "UNAVAILABLE"
