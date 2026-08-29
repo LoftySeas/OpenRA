@@ -1,4 +1,4 @@
-name: Strategic AI GitHub Runner Concurrency Screen
+name: Strategic AI GitHub Runner Paired Calibration
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   calibrate:
-    name: Ubuntu 1/2/4/5 worker five-job screen
+    name: Ubuntu 1/2/4 worker paired eight-job calibration
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     env:
@@ -38,7 +38,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/strategic-ai-content"
           python3 tools/prepare_ra_content.py --support-dir "$RUNNER_TEMP/strategic-ai-content"
 
-      - name: Materialize the frozen five-job screen
+      - name: Materialize the frozen paired eight-job calibration
         run: |
           python3 tools/prepare_m3_experiment.py \
             --plan docs/ai/examples/m3-experiment-plan.json \
@@ -56,14 +56,14 @@ jobs:
 
           root = Path(os.environ["RUNNER_TEMP"]) / "m3-calibration-registration"
           source_path = root / "github-calibration-manifest.json"
-          output_path = root / "github-screening-manifest.json"
-          wanted = (
-              "tr-ore-lord-normal-s01-c20-r0",
-              "tr-ore-lord-rush-s07-c30-r0",
-              "tr-behind-the-veil-normal-s03-c40-r0",
-              "tr-behind-the-veil-rush-s09-c50-r0",
-              "tr-siberian-pass-normal-s05-c60-r0",
+          output_path = root / "github-paired-calibration-manifest.json"
+          cells = (
+              "tr-ore-lord-normal-s01-c20",
+              "tr-ore-lord-rush-s07-c30",
+              "tr-behind-the-veil-normal-s03-c40",
+              "tr-siberian-pass-normal-s05-c60",
           )
+          wanted = tuple(f"{cell}-r{repeat}" for cell in cells for repeat in range(2))
           source = json.loads(source_path.read_text(encoding="utf-8"))
           by_id = {match["id"]: match for match in source["matches"]}
           missing = [job_id for job_id in wanted if job_id not in by_id]
@@ -75,13 +75,13 @@ jobs:
           registration = {
               "schemaVersion": "1.0.0",
               "decisionInfluence": "NONE",
-              "purpose": "GITHUB_RUNNER_CONCURRENCY_SCREEN",
+              "purpose": "GITHUB_RUNNER_PAIRED_CALIBRATION",
               "sourceManifestSha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
-              "screeningManifestSha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
+              "calibrationManifestSha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
               "jobCount": len(wanted),
               "jobIds": list(wanted),
           }
-          (root / "github-screening-registration.json").write_text(
+          (root / "github-paired-calibration-registration.json").write_text(
               json.dumps(registration, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
@@ -112,7 +112,7 @@ jobs:
           df -B1 "$RUNNER_TEMP" > "$RUNNER_TEMP/m3-calibration/disk-before.txt"
           xvfb-run -a -s "-screen 0 1024x768x24" glxinfo -B > "$RUNNER_TEMP/m3-calibration/glxinfo.txt"
 
-      - name: Run 1, 2, 4, and 5 worker calibration
+      - name: Run 1, 2, and 4 worker calibration
         shell: bash
         run: |
           set -uo pipefail
@@ -124,11 +124,11 @@ jobs:
           /usr/bin/time -v -o "$root/calibration-time.txt" \
             xvfb-run -a -s "-screen 0 1024x768x24" \
               python3 tools/strategic_ai_runner.py calibrate \
-                --manifest "$RUNNER_TEMP/m3-calibration-registration/github-screening-manifest.json" \
+                --manifest "$RUNNER_TEMP/m3-calibration-registration/github-paired-calibration-manifest.json" \
                 --output-root "$root" \
                 --content-dir "$RUNNER_TEMP/strategic-ai-content/Content" \
                 --engine-dir "$GITHUB_WORKSPACE" \
-                --worker-counts 1 2 4 5 \
+                --worker-counts 1 2 4 \
                 --continue-after-failure \
                 --skip-build &
           calibration_pid=$!
@@ -161,14 +161,14 @@ jobs:
 
           root = Path(os.environ["RUNNER_TEMP"]) / "m3-calibration"
           decision = json.loads((root / "efficiency-decision.json").read_text(encoding="utf-8"))
-          expected = [1, 2, 4, 5]
+          expected = [1, 2, 4]
           if decision.get("calibratedWorkerCounts") != expected:
               raise SystemExit(f"Incomplete worker counts: {decision.get('calibratedWorkerCounts')!r}")
           runs = decision.get("runs") or []
           if [run.get("workers") for run in runs] != expected:
               raise SystemExit("Calibration summaries are incomplete")
-          if any(run.get("jobCount") != 5 for run in runs):
-              raise SystemExit("A screening run does not contain all five jobs")
+          if any(run.get("jobCount") != 8 for run in runs):
+              raise SystemExit("A calibration run does not contain all eight paired jobs")
           equivalence = decision.get("crossRunEquivalence") or {}
           if equivalence.get("workerCounts") != expected:
               raise SystemExit("Cross-run equivalence evidence is incomplete")
@@ -198,7 +198,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-github-runner-concurrency-screen-${{ github.run_attempt }}
+          name: strategic-ai-github-runner-paired-calibration-${{ github.run_attempt }}
           path: ${{ runner.temp }}/strategic-ai-calibration-evidence/github-runner-calibration.tar.gz
           if-no-files-found: error
           retention-days: 1
