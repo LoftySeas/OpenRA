@@ -1,4 +1,4 @@
-name: Strategic AI GitHub Runner Saturation 2-4-6
+name: Strategic AI GitHub Runner Quick Screen
 
 on:
   workflow_dispatch:
@@ -7,21 +7,21 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
-    name: Ubuntu balanced 48-job 2/4/6-worker saturation diagnostic
+  screen:
+    name: Ubuntu six-job 2/4/6-worker quick screen
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
+    timeout-minutes: 35
     env:
       SDL_AUDIODRIVER: dummy
       LIBGL_ALWAYS_SOFTWARE: '1'
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
 
     steps:
-      - name: Clone exact diagnostic commit
+      - name: Clone exact quick-screen commit
         uses: actions/checkout@v7
 
       - name: Initialize evidence roots
-        run: mkdir -p "$RUNNER_TEMP/m3-saturation" "$RUNNER_TEMP/m3-saturation-registration"
+        run: mkdir -p "$RUNNER_TEMP/m3-quick" "$RUNNER_TEMP/m3-quick-registration"
 
       - name: Install .NET 10 and runtime packages
         uses: actions/setup-dotnet@v6
@@ -34,7 +34,9 @@ jobs:
           sudo apt-get install --no-install-recommends xvfb xauth libgl1-mesa-dri libglx-mesa0 libopenal1 mesa-utils time
 
       - name: Test the controller
-        run: python3 -m unittest tools.tests.test_strategic_ai_runner
+        run: |
+          python3 -m unittest tools.tests.test_strategic_ai_runner
+          bash -n tools/run_github_quick_tier.sh
 
       - name: Build the Linux worker once
         run: dotnet build -c Debug -nologo -warnaserror -p:TargetPlatform=linux-x64
@@ -44,49 +46,58 @@ jobs:
           mkdir -p "$RUNNER_TEMP/strategic-ai-content"
           python3 tools/prepare_ra_content.py --support-dir "$RUNNER_TEMP/strategic-ai-content"
 
-      - name: Materialize one balanced 48-job manifest
+      - name: Materialize the frozen six-job quick screen
         run: |
           python3 tools/prepare_m3_experiment.py \
             --plan docs/ai/examples/m3-experiment-plan.json \
             --phase training \
-            --output-dir "$RUNNER_TEMP/m3-saturation-registration"
+            --output-dir "$RUNNER_TEMP/m3-quick-registration"
           python3 - <<'PY'
           import hashlib
           import json
           import os
           from pathlib import Path
 
-          root = Path(os.environ["RUNNER_TEMP"]) / "m3-saturation-registration"
+          root = Path(os.environ["RUNNER_TEMP"]) / "m3-quick-registration"
           source_path = root / "experiment-manifest.json"
-          output_path = root / "github-saturation-48.json"
+          output_path = root / "github-quick-six.json"
           source = json.loads(source_path.read_text(encoding="utf-8"))
           by_id = {match["id"]: match for match in source["matches"]}
-          maps = ("ore-lord", "siberian-pass", "behind-the-veil")
-          opponents = ("normal", "rush")
-          groups = tuple((map_id, opponent) for map_id in maps for opponent in opponents)
-          candidates = (20, 30, 40, 50, 60)
-          cells = []
-          for slot in range(4):
-              for group_index, (map_id, opponent) in enumerate(groups):
-                  candidate = candidates[(group_index + slot) % len(candidates)]
-                  seed_ordinal = 1 + ((group_index * 4 + slot) % 10)
-                  cells.append(
-                      f"tr-{map_id}-{opponent}-s{seed_ordinal:02d}-c{candidate}"
-                  )
+          selected = (
+              ("tr-ore-lord-normal-s01-c40-r0", "quick-ore-lord-normal-c40"),
+              ("tr-ore-lord-rush-s02-c40-r0", "quick-ore-lord-rush-c40"),
+              ("tr-siberian-pass-normal-s03-c40-r0", "quick-siberian-pass-normal-c40"),
+              ("tr-siberian-pass-rush-s04-c40-r0", "quick-siberian-pass-rush-c40"),
+              ("tr-behind-the-veil-normal-s05-c40-r0", "quick-behind-the-veil-normal-c40"),
+              ("tr-behind-the-veil-rush-s06-c40-r0", "quick-behind-the-veil-rush-c40"),
+          )
 
+          specification_root = root / "quick-specifications"
+          specification_root.mkdir(exist_ok=True)
           matches = []
-          job_cells = {}
-          for cell in cells:
-              for repeat in range(2):
-                  job_id = f"{cell}-r{repeat}"
-                  if job_id not in by_id:
-                      raise SystemExit(f"Training manifest lacks {job_id}")
-                  match = dict(by_id[job_id])
-                  matches.append(match)
-                  job_cells[job_id] = cell
+          provenance = {}
+          for source_id, quick_id in selected:
+              if source_id not in by_id:
+                  raise SystemExit(f"Training manifest lacks {source_id}")
+              source_match = by_id[source_id]
+              source_specification = root / source_match["specificationPath"]
+              specification = json.loads(source_specification.read_text(encoding="utf-8"))
+              specification["maxWorldTicks"] = 30000
+              quick_specification = specification_root / f"{quick_id}.json"
+              quick_specification.write_text(
+                  json.dumps(specification, indent=2, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )
+              match = dict(source_match)
+              match["id"] = quick_id
+              match["specificationPath"] = quick_specification.relative_to(root).as_posix()
+              matches.append(match)
+              provenance[quick_id] = source_id
 
           value = dict(source)
           value["matches"] = matches
+          value["matchTimeoutSeconds"] = 120
+          value["verificationTimeoutSeconds"] = 90
           output_path.write_text(
               json.dumps(value, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
@@ -94,26 +105,21 @@ jobs:
           registration = {
               "schemaVersion": "1.0.0",
               "decisionInfluence": "NONE",
-              "purpose": "GITHUB_RUNNER_SATURATION_2_4_6",
+              "formalSelection": False,
+              "purpose": "GITHUB_RUNNER_QUICK_SCREEN",
               "selectionObjective": "MAX_TOTAL_USEFUL_MATCHES_PER_HOUR",
-              "maximumP95TimeoutFraction": 0.80,
-              "maximumSingleTimeoutFraction": 0.90,
-              "maximumCombinedRssBytes": 11 * 1024**3,
-              "minimumAvailableMemoryBytes": 4 * 1024**3,
-              "minimumDiskAvailableBytes": 10 * 1024**3,
-              "requireCgroupOomCounters": False,
               "sourceManifestSha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
-              "saturationManifestSha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
-              "matchTimeoutSeconds": source["matchTimeoutSeconds"],
-              "verificationTimeoutSeconds": source["verificationTimeoutSeconds"],
+              "quickManifestSha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
               "workerCounts": [2, 4, 6],
-              "workloadCells": list(cells),
               "jobCount": len(matches),
-              "repeatPairCount": len(cells),
+              "repeatPairCount": 0,
+              "maxWorldTicks": 30000,
+              "matchTimeoutSeconds": 120,
+              "verificationTimeoutSeconds": 90,
               "jobIds": [match["id"] for match in matches],
-              "jobCells": job_cells,
+              "sourceJobIds": provenance,
           }
-          (root / "github-saturation-registration.json").write_text(
+          (root / "github-quick-registration.json").write_text(
               json.dumps(registration, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
@@ -121,7 +127,6 @@ jobs:
 
       - name: Capture runner identity
         run: |
-          mkdir -p "$RUNNER_TEMP/m3-saturation"
           python3 - <<'PY'
           import json
           import os
@@ -135,101 +140,122 @@ jobs:
           value = {key: os.environ.get(key) for key in keys}
           value["platform"] = platform.platform()
           value["processor"] = platform.processor()
-          path = Path(os.environ["RUNNER_TEMP"]) / "m3-saturation" / "runner-metadata.json"
+          path = Path(os.environ["RUNNER_TEMP"]) / "m3-quick" / "runner-metadata.json"
           path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           PY
-          uname -a > "$RUNNER_TEMP/m3-saturation/uname.txt"
-          lscpu > "$RUNNER_TEMP/m3-saturation/lscpu.txt"
-          free -b > "$RUNNER_TEMP/m3-saturation/memory-before.txt"
-          df -B1 "$RUNNER_TEMP" > "$RUNNER_TEMP/m3-saturation/disk-before.txt"
-          xvfb-run -a -s "-screen 0 1024x768x24" glxinfo -B > "$RUNNER_TEMP/m3-saturation/glxinfo.txt"
+          uname -a > "$RUNNER_TEMP/m3-quick/uname.txt"
+          lscpu > "$RUNNER_TEMP/m3-quick/lscpu.txt"
 
-      - name: Run balanced 2/4/6-worker full waves
-        shell: bash
+      - name: Run six jobs with 2 workers
         run: |
-          set -uo pipefail
-          root="$RUNNER_TEMP/m3-saturation"
-          registration="$RUNNER_TEMP/m3-saturation-registration"
+          bash tools/run_github_quick_tier.sh 2 \
+            "$RUNNER_TEMP/m3-quick-registration/github-quick-six.json" \
+            "$RUNNER_TEMP/m3-quick/workers-2" \
+            "$RUNNER_TEMP/strategic-ai-content/Content" \
+            "$GITHUB_WORKSPACE" \
+            "$RUNNER_TEMP/m3-quick"
 
-          resolve_memory_events()
-          {
-            if [[ -r /sys/fs/cgroup/memory.events ]]; then
-              printf '%s\n' /sys/fs/cgroup/memory.events
-              return
-            fi
+      - name: Stage 2-worker evidence
+        if: always()
+        run: |
+          stage="$RUNNER_TEMP/m3-quick-tier-2"
+          mkdir -p "$stage" "$RUNNER_TEMP/m3-quick/workers-2"
+          tar --exclude='*/Content' --exclude='*/Content/*' --exclude='ra-quickinstall.zip' \
+            -czf "$stage/workers-2.tar.gz" -C "$RUNNER_TEMP" \
+            m3-quick/workers-2 m3-quick-registration \
+            m3-quick/resource-samples-workers-2.csv m3-quick/workers-2-time.txt \
+            m3-quick/controller-exit-code-workers-2.txt m3-quick/runner-metadata.json \
+            m3-quick/memory-events-before-workers-2.txt m3-quick/memory-events-after-workers-2.txt \
+            m3-quick/uname.txt m3-quick/lscpu.txt
 
-            local relative
-            relative=$(awk -F: '$1 == "0" { print $3; exit }' /proc/self/cgroup)
-            if [[ -n "$relative" && -r "/sys/fs/cgroup$relative/memory.events" ]]; then
-              printf '%s\n' "/sys/fs/cgroup$relative/memory.events"
-            fi
-          }
+      - name: Upload 2-worker evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: strategic-ai-quick-screen-workers-2-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/m3-quick-tier-2/workers-2.tar.gz
+          if-no-files-found: error
+          retention-days: 1
 
-          memory_events_path=$(resolve_memory_events)
-          printf '%s\n' "$memory_events_path" > "$root/memory-events-path.txt"
-          cp /proc/self/cgroup "$root/proc-self-cgroup.txt"
+      - name: Run six jobs with 4 workers
+        if: always()
+        run: |
+          bash tools/run_github_quick_tier.sh 4 \
+            "$RUNNER_TEMP/m3-quick-registration/github-quick-six.json" \
+            "$RUNNER_TEMP/m3-quick/workers-4" \
+            "$RUNNER_TEMP/strategic-ai-content/Content" \
+            "$GITHUB_WORKSPACE" \
+            "$RUNNER_TEMP/m3-quick"
 
-          for workers in 2 4 6; do
-            samples="$root/resource-samples-workers-$workers.csv"
-            echo 'unix_ms,mem_available_bytes,swap_used_bytes,load_1m,openra_processes,openra_rss_kib,disk_available_bytes' > "$samples"
-            if [[ -n "$memory_events_path" ]]; then
-              cp "$memory_events_path" "$root/memory-events-before-workers-$workers.txt"
-            fi
+      - name: Stage 4-worker evidence
+        if: always()
+        run: |
+          stage="$RUNNER_TEMP/m3-quick-tier-4"
+          mkdir -p "$stage" "$RUNNER_TEMP/m3-quick/workers-4"
+          tar --exclude='*/Content' --exclude='*/Content/*' --exclude='ra-quickinstall.zip' \
+            -czf "$stage/workers-4.tar.gz" -C "$RUNNER_TEMP" \
+            m3-quick/workers-4 m3-quick-registration \
+            m3-quick/resource-samples-workers-4.csv m3-quick/workers-4-time.txt \
+            m3-quick/controller-exit-code-workers-4.txt m3-quick/runner-metadata.json \
+            m3-quick/memory-events-before-workers-4.txt m3-quick/memory-events-after-workers-4.txt \
+            m3-quick/uname.txt m3-quick/lscpu.txt
 
-            set +e
-            /usr/bin/time -v -o "$root/workers-$workers-time.txt" \
-              xvfb-run -a -s "-screen 0 1024x768x24" \
-                python3 tools/strategic_ai_runner.py run \
-                  --manifest "$registration/github-saturation-48.json" \
-                  --output-root "$root/workers-$workers" \
-                  --content-dir "$RUNNER_TEMP/strategic-ai-content/Content" \
-                  --engine-dir "$GITHUB_WORKSPACE" \
-                  --max-workers "$workers" \
-                  --skip-build &
-            calibration_pid=$!
+      - name: Upload 4-worker evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: strategic-ai-quick-screen-workers-4-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/m3-quick-tier-4/workers-4.tar.gz
+          if-no-files-found: error
+          retention-days: 1
 
-            while kill -0 "$calibration_pid" 2>/dev/null; do
-              unix_ms=$(date +%s%3N)
-              mem_kib=$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo)
-              swap_used_kib=$(awk '
-                /^SwapTotal:/ { total = $2 }
-                /^SwapFree:/ { free = $2 }
-                END { print total - free }
-              ' /proc/meminfo)
-              load_1m=$(awk '{ print $1 }' /proc/loadavg)
-              read -r process_count rss_kib < <(
-                ps -eo rss=,args= | awk '/\/bin\/OpenRA( |$)/ { count += 1; rss += $1 } END { print count + 0, rss + 0 }'
-              )
-              disk_bytes=$(df -B1 --output=avail "$RUNNER_TEMP" | tail -n 1 | tr -d ' ')
-              echo "$unix_ms,$((mem_kib * 1024)),$((swap_used_kib * 1024)),$load_1m,$process_count,$rss_kib,$disk_bytes" >> "$samples"
-              sleep 1
-            done
-            wait "$calibration_pid"
-            controller_exit=$?
-            set -e
-            echo "$controller_exit" > "$root/controller-exit-code-workers-$workers.txt"
-            if [[ -n "$memory_events_path" ]]; then
-              cp "$memory_events_path" "$root/memory-events-after-workers-$workers.txt"
-            fi
-          done
+      - name: Run six jobs with 6 workers
+        if: always()
+        run: |
+          bash tools/run_github_quick_tier.sh 6 \
+            "$RUNNER_TEMP/m3-quick-registration/github-quick-six.json" \
+            "$RUNNER_TEMP/m3-quick/workers-6" \
+            "$RUNNER_TEMP/strategic-ai-content/Content" \
+            "$GITHUB_WORKSPACE" \
+            "$RUNNER_TEMP/m3-quick"
 
-      - name: Classify saturation balance point
+      - name: Stage 6-worker evidence
+        if: always()
+        run: |
+          stage="$RUNNER_TEMP/m3-quick-tier-6"
+          mkdir -p "$stage" "$RUNNER_TEMP/m3-quick/workers-6"
+          tar --exclude='*/Content' --exclude='*/Content/*' --exclude='ra-quickinstall.zip' \
+            -czf "$stage/workers-6.tar.gz" -C "$RUNNER_TEMP" \
+            m3-quick/workers-6 m3-quick-registration \
+            m3-quick/resource-samples-workers-6.csv m3-quick/workers-6-time.txt \
+            m3-quick/controller-exit-code-workers-6.txt m3-quick/runner-metadata.json \
+            m3-quick/memory-events-before-workers-6.txt m3-quick/memory-events-after-workers-6.txt \
+            m3-quick/uname.txt m3-quick/lscpu.txt
+
+      - name: Upload 6-worker evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: strategic-ai-quick-screen-workers-6-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/m3-quick-tier-6/workers-6.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Classify the quick screen
         if: always()
         run: |
           python3 - <<'PY'
           import csv
           import json
-          import math
           import os
-          import statistics
           from pathlib import Path
 
-          root = Path(os.environ["RUNNER_TEMP"]) / "m3-saturation"
-          registration_root = Path(os.environ["RUNNER_TEMP"]) / "m3-saturation-registration"
+          root = Path(os.environ["RUNNER_TEMP"]) / "m3-quick"
+          registration_root = Path(os.environ["RUNNER_TEMP"]) / "m3-quick-registration"
           registration = json.loads(
-              (registration_root / "github-saturation-registration.json").read_text(encoding="utf-8")
+              (registration_root / "github-quick-registration.json").read_text(encoding="utf-8")
           )
-          expected_job_ids = set(registration["jobIds"])
+          expected_ids = set(registration["jobIds"])
 
           def evidence(job):
               match = job.get("match") or {}
@@ -237,32 +263,17 @@ jobs:
               verification = job.get("verification") or {}
               verification_result = verification.get("result") or {}
               return {
-                  "status": job.get("status"),
                   "specificationSha256": job.get("specificationSha256"),
-                  "expectedCandidateId": job.get("expectedCandidateId"),
-                  "expectedCandidateSha256": job.get("expectedCandidateSha256"),
-                  "expectedSquadSize": job.get("expectedSquadSize"),
-                  "matchExitCode": match.get("exitCode"),
                   "matchStatus": match_result.get("status"),
-                  "executionMode": match_result.get("executionMode"),
                   "finalWorldTick": match_result.get("finalWorldTick"),
-                  "finalNetworkFrame": match_result.get("finalNetworkFrame"),
                   "finalSyncHash": match_result.get("finalSyncHash"),
                   "orderDigestSha256": match_result.get("orderDigestSha256"),
                   "strategicDecisionDigestSha256": match_result.get("strategicDecisionDigestSha256"),
                   "players": match_result.get("players"),
-                  "verificationExitCode": verification.get("exitCode"),
                   "verificationStatus": verification_result.get("status"),
-                  "recordedFinalWorldTick": verification_result.get("recordedFinalWorldTick"),
                   "observedFinalWorldTick": verification_result.get("observedFinalWorldTick"),
-                  "verifiedFinalNetworkFrame": verification_result.get("finalNetworkFrame"),
                   "outOfSyncFrame": verification_result.get("outOfSyncFrame"),
-                  "scheduledMatchTimeoutTick": verification_result.get("scheduledMatchTimeoutTick"),
               }
-
-          def percentile(values, fraction):
-              ordered = sorted(values)
-              return ordered[math.ceil(fraction * len(ordered)) - 1] if ordered else None
 
           def memory_events(path):
               if not path.is_file():
@@ -273,270 +284,142 @@ jobs:
               }
 
           summaries = []
+          baseline = None
           baseline_jobs = None
-          cross_count_differences = []
+          cross_differences = []
+          cross_incomplete = []
           measurement_complete = True
           for workers in registration["workerCounts"]:
               result_path = root / f"workers-{workers}" / "experiment-result.json"
               if not result_path.is_file():
                   measurement_complete = False
-                  summaries.append({"workers": workers, "resultMissing": True, "eligible": False})
+                  summaries.append({"workers": workers, "eligible": False, "resultMissing": True})
                   continue
-
               result = json.loads(result_path.read_text(encoding="utf-8"))
               jobs = result.get("jobs") or {}
-              valid_count = sum(job.get("status") == "VALID" for job in jobs.values())
-              durations = sorted(
-                  (job.get("match") or {}).get("elapsedSeconds", 0)
-                  + (job.get("verification") or {}).get("elapsedSeconds", 0)
-                  for job in jobs.values()
-              )
-              match_elapsed = [(job.get("match") or {}).get("elapsedSeconds", 0) for job in jobs.values()]
-              verify_elapsed = [(job.get("verification") or {}).get("elapsedSeconds", 0) for job in jobs.values()]
-
-              by_cell = {}
-              for job_id, job in jobs.items():
-                  cell = registration["jobCells"].get(job_id)
-                  if cell is None:
-                      measurement_complete = False
-                      continue
-                  by_cell.setdefault(cell, []).append((job_id, evidence(job)))
-
-              duplicate_differences = []
-              for cell, replicas in sorted(by_cell.items()):
-                  expected = replicas[0][1]
-                  for job_id, observed in replicas[1:]:
-                      fields = [field for field in expected if expected[field] != observed[field]]
-                      if fields:
-                          duplicate_differences.append({"cell": cell, "jobId": job_id, "fields": fields})
-
-              if baseline_jobs is None:
-                  baseline_jobs = {job_id: evidence(job) for job_id, job in jobs.items()}
+              if set(jobs) != expected_ids:
+                  measurement_complete = False
+              current = {job_id: evidence(job) for job_id, job in jobs.items()}
+              if baseline is None:
+                  baseline = current
+                  baseline_jobs = jobs
               else:
-                  for job_id in sorted(set(baseline_jobs) | set(jobs)):
-                      if job_id not in baseline_jobs or job_id not in jobs:
-                          cross_count_differences.append(
-                              {"workers": workers, "jobId": job_id, "fields": ["missingOrUnexpectedJob"]}
-                          )
+                  for job_id in sorted(expected_ids):
+                      if job_id not in baseline or job_id not in current:
+                          cross_incomplete.append({"workers": workers, "jobId": job_id, "reason": "missing"})
                           continue
-                      observed = evidence(jobs[job_id])
-                      fields = [
-                          field for field in baseline_jobs[job_id]
-                          if baseline_jobs[job_id][field] != observed[field]
-                      ]
+                      baseline_job = (baseline_jobs or {}).get(job_id) or {}
+                      current_job = jobs.get(job_id) or {}
+                      if baseline_job.get("status") != "VALID" or current_job.get("status") != "VALID":
+                          cross_incomplete.append({"workers": workers, "jobId": job_id, "reason": "invalid"})
+                          continue
+                      fields = [field for field in baseline[job_id] if baseline[job_id][field] != current[job_id][field]]
                       if fields:
-                          cross_count_differences.append(
-                              {"workers": workers, "jobId": job_id, "fields": fields}
-                          )
+                          cross_differences.append({"workers": workers, "jobId": job_id, "fields": fields})
 
-              controller_exit_path = root / f"controller-exit-code-workers-{workers}.txt"
-              controller_exit = (
-                  int(controller_exit_path.read_text(encoding="utf-8").strip())
-                  if controller_exit_path.is_file() else None
-              )
+              controller_path = root / f"controller-exit-code-workers-{workers}.txt"
+              controller_exit = int(controller_path.read_text(encoding="utf-8").strip()) if controller_path.is_file() else None
               samples_path = root / f"resource-samples-workers-{workers}.csv"
               samples = []
               if samples_path.is_file():
                   with samples_path.open(newline="", encoding="utf-8") as stream:
                       samples = list(csv.DictReader(stream))
-              if not samples:
-                  measurement_complete = False
               max_processes = max((int(row["openra_processes"]) for row in samples), default=0)
               max_rss = max((int(row["openra_rss_kib"]) for row in samples), default=0) * 1024
               min_available = min((int(row["mem_available_bytes"]) for row in samples), default=0)
-              max_swap_used = max((int(row["swap_used_bytes"]) for row in samples), default=0)
-              max_load = max((float(row["load_1m"]) for row in samples), default=0)
-              min_disk_available = min((int(row["disk_available_bytes"]) for row in samples), default=0)
+              min_disk = min((int(row["disk_available_bytes"]) for row in samples), default=0)
+              max_swap = max((int(row["swap_used_bytes"]) for row in samples), default=0)
               events_before = memory_events(root / f"memory-events-before-workers-{workers}.txt")
               events_after = memory_events(root / f"memory-events-after-workers-{workers}.txt")
-              memory_events_available = bool(events_before) and bool(events_after)
               oom_delta = events_after.get("oom", 0) - events_before.get("oom", 0)
               oom_kill_delta = events_after.get("oom_kill", 0) - events_before.get("oom_kill", 0)
-              replay_logs = list(
-                  (root / f"workers-{workers}").glob(
-                      "workers/*/attempts/*/verify/Logs/strategic-decisions.log"
-                  )
-              )
-              replay_log_bytes = sum(path.stat().st_size for path in replay_logs)
-
-              wall = result.get("wallClockElapsedSeconds") or 0
-              match_max = max(match_elapsed, default=0)
-              verify_max = max(verify_elapsed, default=0)
-              match_p95 = percentile(match_elapsed, 0.95)
-              verify_p95 = percentile(verify_elapsed, 0.95)
-              p95 = percentile(durations, 0.95)
-              repeat = result.get("repeatEquivalence") or {}
-              provenance = result.get("controllerProvenance") or {}
+              valid_count = sum(job.get("status") == "VALID" for job in jobs.values())
               timed_out_count = sum(
                   bool((job.get("match") or {}).get("timedOut"))
                   or bool((job.get("verification") or {}).get("timedOut"))
                   for job in jobs.values()
               )
+              replay_logs = list((root / f"workers-{workers}").glob("workers/*/attempts/*/verify/Logs/strategic-decisions.log"))
+              replay_log_bytes = sum(path.stat().st_size for path in replay_logs)
+              repeat = result.get("repeatEquivalence") or {}
+              provenance = result.get("controllerProvenance") or {}
+              wall = result.get("wallClockElapsedSeconds") or 0
               checks = {
                   "controllerExitZero": controller_exit == 0,
                   "resultCompleted": result.get("status") == "COMPLETED",
-                  "manifestIdentity": result.get("manifestSha256") == registration["saturationManifestSha256"],
+                  "manifestIdentity": result.get("manifestSha256") == registration["quickManifestSha256"],
                   "requestedConcurrencyRecorded": result.get("maxWorkers") == workers,
                   "requestedConcurrencyObserved": max_processes == workers,
                   "controllerProvenanceComplete": provenance.get("complete") is True,
-                  "exactJobIds": set(jobs) == expected_job_ids,
+                  "exactJobIds": set(jobs) == expected_ids,
                   "allJobsValid": valid_count == registration["jobCount"],
                   "noProcessTimeout": timed_out_count == 0,
-                  "repeatPairsComplete": (
-                      repeat.get("pairCount") == registration["repeatPairCount"]
-                      and repeat.get("mismatchCount") == 0
-                  ),
-                  "replayLogsPresentAndEmpty": (
-                      len(replay_logs) == registration["jobCount"]
-                      and replay_log_bytes == 0
-                  ),
-                  "matchP95Headroom": (
-                      match_p95 is not None
-                      and match_p95 <= registration["matchTimeoutSeconds"]
-                      * registration["maximumP95TimeoutFraction"]
-                  ),
-                  "verificationP95Headroom": (
-                      verify_p95 is not None
-                      and verify_p95 <= registration["verificationTimeoutSeconds"]
-                      * registration["maximumP95TimeoutFraction"]
-                  ),
-                  "matchMaxHeadroom": (
-                      match_max <= registration["matchTimeoutSeconds"]
-                      * registration["maximumSingleTimeoutFraction"]
-                  ),
-                  "verificationMaxHeadroom": (
-                      verify_max <= registration["verificationTimeoutSeconds"]
-                      * registration["maximumSingleTimeoutFraction"]
-                  ),
-                  "rssWithinLimit": max_rss <= registration["maximumCombinedRssBytes"],
-                  "availableMemoryWithinLimit": min_available >= registration["minimumAvailableMemoryBytes"],
-                  "diskWithinLimit": min_disk_available >= registration["minimumDiskAvailableBytes"],
-                  "noSwap": max_swap_used == 0,
-                  "oomEvidenceRequirementMet": (
-                      memory_events_available
-                      or not registration["requireCgroupOomCounters"]
-                  ),
+                  "noImplicitRepeatPairs": repeat.get("pairCount") == 0,
+                  "replayLogsPresentAndEmpty": len(replay_logs) == registration["jobCount"] and replay_log_bytes == 0,
+                  "rssWithinLimit": max_rss <= 11 * 1024**3,
+                  "availableMemoryWithinLimit": min_available >= 4 * 1024**3,
+                  "diskWithinLimit": min_disk >= 10 * 1024**3,
+                  "noSwap": max_swap == 0,
                   "noOom": oom_delta == 0 and oom_kill_delta == 0,
-                  "withinTierDeterministic": not duplicate_differences,
               }
-              eligibility_failures = [name for name, passed in checks.items() if not passed]
-              eligible = not eligibility_failures
+              failures = [name for name, passed in checks.items() if not passed]
               summaries.append({
                   "workers": workers,
-                  "status": result.get("status"),
                   "jobCount": len(jobs),
                   "validCount": valid_count,
                   "controllerExitCode": controller_exit,
-                  "manifestSha256": result.get("manifestSha256"),
-                  "recordedMaxWorkers": result.get("maxWorkers"),
-                  "controllerProvenanceComplete": provenance.get("complete"),
-                  "repeatPairCount": repeat.get("pairCount"),
-                  "repeatMismatchCount": repeat.get("mismatchCount"),
                   "timedOutProcessCount": timed_out_count,
                   "wallClockElapsedSeconds": wall,
                   "usefulMatchesPerHour": valid_count * 3600 / wall if wall else 0,
-                  "meanJobElapsedSeconds": statistics.mean(durations) if durations else None,
-                  "p95JobElapsedSeconds": p95,
-                  "p95MatchElapsedSeconds": match_p95,
-                  "p95VerificationElapsedSeconds": verify_p95,
-                  "maxMatchElapsedSeconds": match_max,
-                  "maxVerificationElapsedSeconds": verify_max,
-                  "duplicateMismatchCount": len(duplicate_differences),
-                  "duplicateDifferences": duplicate_differences,
-                  "replayStrategicLogBytes": replay_log_bytes,
-                  "replayStrategicLogCount": len(replay_logs),
                   "maxOpenRaProcesses": max_processes,
                   "maxCombinedRssBytes": max_rss,
                   "minAvailableMemoryBytes": min_available,
-                  "minDiskAvailableBytes": min_disk_available,
-                  "maxSwapUsedBytes": max_swap_used,
-                  "memoryEventsAvailable": memory_events_available,
+                  "minDiskAvailableBytes": min_disk,
+                  "maxSwapUsedBytes": max_swap,
                   "oomDelta": oom_delta,
                   "oomKillDelta": oom_kill_delta,
-                  "maxLoad1m": max_load,
                   "eligibilityChecks": checks,
-                  "eligibilityFailures": eligibility_failures,
-                  "eligible": eligible,
+                  "eligibilityFailures": failures,
+                  "eligible": not failures,
               })
-              if (
-                  controller_exit is None
-                  or len(jobs) != registration["jobCount"]
-                  or set(jobs) != expected_job_ids
-              ):
-                  measurement_complete = False
-
-          previous = None
-          for summary in summaries:
-              if previous is None:
-                  summary["aggregateGainVsPreviousFraction"] = None
-              elif previous.get("usefulMatchesPerHour"):
-                  summary["aggregateGainVsPreviousFraction"] = (
-                      summary.get("usefulMatchesPerHour", 0)
-                      / previous["usefulMatchesPerHour"] - 1
-                  )
-              else:
-                  summary["aggregateGainVsPreviousFraction"] = None
-              previous = summary
 
           for summary in summaries:
-              if any(
-                  difference["workers"] == summary.get("workers")
-                  for difference in cross_count_differences
-              ):
+              if any(item["workers"] == summary["workers"] for item in cross_differences):
                   summary["eligible"] = False
                   summary.setdefault("eligibilityFailures", []).append("crossTierDeterministic")
-
-          eligible_summaries = [summary for summary in summaries if summary.get("eligible")]
-          winner = max(
-              eligible_summaries,
-              key=lambda summary: (summary["usefulMatchesPerHour"], -summary["workers"]),
-              default=None,
-          )
-          selected = winner["workers"] if winner is not None else None
-
+          eligible = [summary for summary in summaries if summary.get("eligible")]
+          winner = max(eligible, key=lambda item: (item["usefulMatchesPerHour"], -item["workers"]), default=None)
           decision = {
               "schemaVersion": "1.0.0",
-              "decisionInfluence": registration["decisionInfluence"],
-              "selectionObjective": registration["selectionObjective"],
+              "decisionInfluence": "NONE",
+              "formalSelection": False,
+              "purpose": "GITHUB_RUNNER_QUICK_SCREEN",
               "measurementComplete": measurement_complete,
-              "selectedWorkers": selected,
-              "rawThroughputWinnerWorkers": selected,
-              "crossCountMismatchCount": len(cross_count_differences),
-              "crossCountDifferences": cross_count_differences,
+              "screenWinnerWorkers": winner["workers"] if winner else None,
+              "crossCountMismatchCount": len(cross_differences),
+              "crossCountDifferences": cross_differences,
+              "crossCountIncompleteCount": len(cross_incomplete),
+              "crossCountIncomplete": cross_incomplete,
               "summaries": summaries,
           }
-          (root / "saturation-decision.json").write_text(
+          (root / "quick-screen-decision.json").write_text(
               json.dumps(decision, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
           print(json.dumps(decision, indent=2, sort_keys=True))
           if not measurement_complete:
-              raise SystemExit("Saturation measurement is incomplete")
-          if cross_count_differences or any(
-              summary.get("duplicateMismatchCount", 0) for summary in summaries
-          ):
-              raise SystemExit("Saturation measurement contains deterministic drift")
+              raise SystemExit("Quick-screen measurement is incomplete")
+          if cross_differences:
+              raise SystemExit("Quick screen contains deterministic drift")
+          if winner is None:
+              raise SystemExit("Quick screen has no eligible tier")
           PY
 
-      - name: Stage non-proprietary saturation evidence
-        if: always()
-        run: |
-          stage="$RUNNER_TEMP/strategic-ai-saturation-evidence"
-          mkdir -p "$stage" "$RUNNER_TEMP/m3-saturation" "$RUNNER_TEMP/m3-saturation-registration"
-          tar \
-            --exclude='*/Content' \
-            --exclude='*/Content/*' \
-            --exclude='ra-quickinstall.zip' \
-            -czf "$stage/github-runner-saturation.tar.gz" \
-            -C "$RUNNER_TEMP" \
-            m3-saturation \
-            m3-saturation-registration
-
-      - name: Upload saturation evidence
+      - name: Upload quick-screen decision
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-github-runner-saturation-2-4-6-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/strategic-ai-saturation-evidence/github-runner-saturation.tar.gz
+          name: strategic-ai-quick-screen-decision-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/m3-quick/quick-screen-decision.json
           if-no-files-found: error
           retention-days: 1
