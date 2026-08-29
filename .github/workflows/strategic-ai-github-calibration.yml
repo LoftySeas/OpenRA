@@ -1,4 +1,4 @@
-name: Strategic AI GitHub Runner Paired Calibration
+name: Strategic AI GitHub Runner Eight Worker Diagnostic
 
 on:
   workflow_dispatch:
@@ -7,8 +7,8 @@ permissions:
   contents: read
 
 jobs:
-  calibrate:
-    name: Ubuntu 1/2/4 worker paired eight-job calibration
+  diagnose:
+    name: Ubuntu 8-worker paired eight-job diagnostic
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     env:
@@ -75,7 +75,7 @@ jobs:
           registration = {
               "schemaVersion": "1.0.0",
               "decisionInfluence": "NONE",
-              "purpose": "GITHUB_RUNNER_PAIRED_CALIBRATION",
+              "purpose": "GITHUB_RUNNER_EIGHT_WORKER_DIAGNOSTIC",
               "sourceManifestSha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
               "calibrationManifestSha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
               "jobCount": len(wanted),
@@ -112,7 +112,7 @@ jobs:
           df -B1 "$RUNNER_TEMP" > "$RUNNER_TEMP/m3-calibration/disk-before.txt"
           xvfb-run -a -s "-screen 0 1024x768x24" glxinfo -B > "$RUNNER_TEMP/m3-calibration/glxinfo.txt"
 
-      - name: Run 1, 2, and 4 worker calibration
+      - name: Run one eight-worker wave
         shell: bash
         run: |
           set -uo pipefail
@@ -121,15 +121,14 @@ jobs:
           echo 'unix_ms,mem_available_bytes,load_1m,openra_processes,openra_rss_kib,disk_available_bytes' > "$samples"
 
           set +e
-          /usr/bin/time -v -o "$root/calibration-time.txt" \
+          /usr/bin/time -v -o "$root/eight-worker-time.txt" \
             xvfb-run -a -s "-screen 0 1024x768x24" \
-              python3 tools/strategic_ai_runner.py calibrate \
+              python3 tools/strategic_ai_runner.py run \
                 --manifest "$RUNNER_TEMP/m3-calibration-registration/github-paired-calibration-manifest.json" \
-                --output-root "$root" \
+                --output-root "$root/workers-8" \
                 --content-dir "$RUNNER_TEMP/strategic-ai-content/Content" \
                 --engine-dir "$GITHUB_WORKSPACE" \
-                --worker-counts 1 2 4 \
-                --continue-after-failure \
+                --max-workers 8 \
                 --skip-build &
           calibration_pid=$!
 
@@ -149,8 +148,7 @@ jobs:
           set -e
           echo "$controller_exit" > "$root/controller-exit-code.txt"
 
-          test -f "$root/efficiency-decision.json"
-          test -f "$root/calibration-equivalence.json"
+          test -f "$root/workers-8/experiment-result.json"
 
       - name: Validate measurement completeness
         run: |
@@ -159,25 +157,29 @@ jobs:
           import os
           from pathlib import Path
 
-          root = Path(os.environ["RUNNER_TEMP"]) / "m3-calibration"
-          decision = json.loads((root / "efficiency-decision.json").read_text(encoding="utf-8"))
-          expected = [1, 2, 4]
-          if decision.get("calibratedWorkerCounts") != expected:
-              raise SystemExit(f"Incomplete worker counts: {decision.get('calibratedWorkerCounts')!r}")
-          runs = decision.get("runs") or []
-          if [run.get("workers") for run in runs] != expected:
-              raise SystemExit("Calibration summaries are incomplete")
-          if any(run.get("jobCount") != 8 for run in runs):
-              raise SystemExit("A calibration run does not contain all eight paired jobs")
-          equivalence = decision.get("crossRunEquivalence") or {}
-          if equivalence.get("workerCounts") != expected:
-              raise SystemExit("Cross-run equivalence evidence is incomplete")
-          print(json.dumps({
-              "status": decision.get("status"),
-              "selectedWorkers": decision.get("selectedWorkers"),
-              "runs": runs,
-              "crossRunMismatchCount": equivalence.get("mismatchCount"),
-          }, indent=2, sort_keys=True))
+          root = Path(os.environ["RUNNER_TEMP"]) / "m3-calibration" / "workers-8"
+          result = json.loads((root / "experiment-result.json").read_text(encoding="utf-8"))
+          jobs = result.get("jobs") or {}
+          valid = [job for job in jobs.values() if job.get("status") == "VALID"]
+          repeat = result.get("repeatEquivalence") or {}
+          parity = result.get("parity") or {}
+          summary = {
+              "status": result.get("status"),
+              "jobCount": len(jobs),
+              "validCount": len(valid),
+              "wallClockElapsedSeconds": result.get("wallClockElapsedSeconds"),
+              "usefulMatchesPerHour": (
+                  len(valid) * 3600 / result["wallClockElapsedSeconds"]
+                  if result.get("wallClockElapsedSeconds") else 0
+              ),
+              "repeatMismatchCount": repeat.get("mismatchCount"),
+              "parityMismatchCount": parity.get("mismatchCount"),
+          }
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          if len(jobs) != 8:
+              raise SystemExit("The diagnostic does not contain all eight paired jobs")
+          if len(valid) != 8 or repeat.get("mismatchCount") != 0 or parity.get("mismatchCount") != 0:
+              raise SystemExit("The eight-worker diagnostic contains invalid or mismatched jobs")
           PY
 
       - name: Stage non-proprietary calibration evidence
@@ -198,7 +200,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: strategic-ai-github-runner-paired-calibration-${{ github.run_attempt }}
+          name: strategic-ai-github-runner-eight-worker-diagnostic-${{ github.run_attempt }}
           path: ${{ runner.temp }}/strategic-ai-calibration-evidence/github-runner-calibration.tar.gz
           if-no-files-found: error
           retention-days: 1
